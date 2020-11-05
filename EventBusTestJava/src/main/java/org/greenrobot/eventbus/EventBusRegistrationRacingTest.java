@@ -81,14 +81,14 @@ public class EventBusRegistrationRacingTest extends AbstractEventBusTest {
         @Override
         public void run() {
             countDownAndAwaitLatch(startLatch, 10);
-            eventBus.register(this);
+            eventBus.registerSubscriber(this);
             registeredLatch.countDown();
             try {
                 canUnregisterLatch.await();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
-            eventBus.unregister(this);
+            eventBus.unregisterSubscriber(this);
             unregisteredLatch.countDown();
         }
 
