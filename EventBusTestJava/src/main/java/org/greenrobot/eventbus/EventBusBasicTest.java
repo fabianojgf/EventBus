@@ -194,39 +194,39 @@ public class EventBusBasicTest extends AbstractEventBusTest {
 
     @Test
     public void testHasSubscriberForEvent() {
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
 
         eventBus.registerSubscriber(this);
-        assertTrue(eventBus.hasSubscriberForEventClass(String.class));
+        assertTrue(eventBus.hasSubscriberForEventType(String.class));
 
         eventBus.unregisterSubscriber(this);
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
     }
 
     @Test
     public void testHasSubscriberForEventSuperclass() {
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
 
         Object subscriber = new ObjectSubscriber();
         eventBus.registerSubscriber(subscriber);
-        assertTrue(eventBus.hasSubscriberForEventClass(String.class));
+        assertTrue(eventBus.hasSubscriberForEventType(String.class));
 
         eventBus.unregisterSubscriber(subscriber);
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
     }
 
     @Test
     public void testHasSubscriberForEventImplementedInterface() {
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
 
         Object subscriber = new CharSequenceSubscriber();
         eventBus.registerSubscriber(subscriber);
-        assertTrue(eventBus.hasSubscriberForEventClass(CharSequence.class));
-        assertTrue(eventBus.hasSubscriberForEventClass(String.class));
+        assertTrue(eventBus.hasSubscriberForEventType(CharSequence.class));
+        assertTrue(eventBus.hasSubscriberForEventType(String.class));
 
         eventBus.unregisterSubscriber(subscriber);
-        assertFalse(eventBus.hasSubscriberForEventClass(CharSequence.class));
-        assertFalse(eventBus.hasSubscriberForEventClass(String.class));
+        assertFalse(eventBus.hasSubscriberForEventType(CharSequence.class));
+        assertFalse(eventBus.hasSubscriberForEventType(String.class));
     }
 
     @Subscribe

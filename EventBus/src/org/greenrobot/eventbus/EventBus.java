@@ -18,8 +18,6 @@ package org.greenrobot.eventbus;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -73,10 +71,8 @@ public class EventBus {
 
     /**
      * Current Immediate Thread State.
-     *
-     * For events and exceptional events sent immediately to objects already instantiated.
-     * */
-
+     * For events sent immediately to objects already instantiated.
+     */
     private final ThreadLocal<PostingThreadState> currentImmediatePostingThreadState = new ThreadLocal<PostingThreadState>() {
         @Override
         protected PostingThreadState initialValue() {
@@ -84,6 +80,10 @@ public class EventBus {
         }
     };
 
+    /**
+     * Current Immediate Thread State.
+     * For exceptional events sent immediately to objects already instantiated.
+     */
     private final ThreadLocal<ThrowingThreadState> currentImmediateThrowingThreadState = new ThreadLocal<ThrowingThreadState>() {
         @Override
         protected ThrowingThreadState initialValue() {
@@ -93,10 +93,8 @@ public class EventBus {
 
     /**
      * Current Late Thread State.
-     *
-     * For events and exceptional events sent late for objects that are yet to be instantiated.
-     * */
-
+     * For events sent late for objects that are yet to be instantiated.
+     */
     private final ThreadLocal<PostingThreadState> currentLatePostingThreadState = new ThreadLocal<PostingThreadState>() {
         @Override
         protected PostingThreadState initialValue() {
@@ -104,6 +102,10 @@ public class EventBus {
         }
     };
 
+    /**
+     * Current Late Thread State.
+     * For exceptional events sent late for objects that are yet to be instantiated.
+     */
     private final ThreadLocal<ThrowingThreadState> currentLateThrowingThreadState = new ThreadLocal<ThrowingThreadState>() {
         @Override
         protected ThrowingThreadState initialValue() {
@@ -145,12 +147,21 @@ public class EventBus {
     private final int indexCountHandler;
     private final Logger logger;
 
-    /** Convenience singleton for apps using a process-wide EventBus instance. */
+    /**
+     * Convenience singleton for apps using a process-wide EventBus instance.
+     *
+     * @return
+     */
     public static EventBus getDefault() {
         return getDefault((Context) null);
     }
 
-    /** Convenience singleton for apps using a process-wide EventBus instance. */
+    /**
+     * Convenience singleton for apps using a process-wide EventBus instance.
+     *
+     * @param context
+     * @return
+     */
     public static EventBus getDefault(android.content.Context context) {
         EventBus instance = defaultInstance;
         if (instance == null) {
@@ -164,11 +175,17 @@ public class EventBus {
         return instance;
     }
 
+    /**
+     *
+     * @return
+     */
     public static EventBusBuilder builder() {
         return new EventBusBuilder();
     }
 
-    /** For unit test primarily. */
+    /**
+     * For unit test primarily.
+     */
     public static void clearCaches() {
         /** Subcribers */
         SubscriberMethodFinder.clearCaches();
@@ -179,19 +196,28 @@ public class EventBus {
     }
 
     /**
-     * Creates a new EventBus instance; each instance is a separate scope in which events are delivered. To use a
-     * central bus, consider {@link #getDefault()}.
+     * Creates a new EventBus instance; each instance is a separate scope in which events are delivered.
+     * To use a central bus, consider {@link #getDefault()}.
      */
     public EventBus() {
         this((Context) null);
     }
 
-
+    /**
+     * Creates a new EventBus instance; each instance is a separate scope in which events are delivered.
+     * To use a central bus, consider {@link #getDefault(android.content.Context)}.
+     *
+     * @param context
+     */
     public EventBus(android.content.Context context) {
         this(DEFAULT_BUILDER);
         this.context = context;
     }
 
+    /**
+     *
+     * @param builder
+     */
     EventBus(EventBusBuilder builder) {
         logger = builder.getLogger();
 
@@ -249,6 +275,8 @@ public class EventBus {
     /**
      * Registers the given object to receive both events and exceptional events. Registered objects must call {@link #unregister(Object)} once they
      * are no longer interested in receiving events and exceptional events.
+     *
+     * @param object
      */
     public void register(Object object) {
         registerSubscriber(object);
@@ -262,6 +290,8 @@ public class EventBus {
      * Subscribers have event handling methods that must be annotated by {@link Subscribe}.
      * The {@link Subscribe} annotation also allows configuration like {@link
      * ThreadMode} and priority.
+     *
+     * @param subscriber
      */
     public void registerSubscriber(Object subscriber) {
         Class<?> subscriberClass = subscriber.getClass();
@@ -284,6 +314,8 @@ public class EventBus {
      * Handlers have exceptional event handling methods that must be annotated by {@link Handle}.
      * The {@link Handle} annotation also allows configuration like {@link
      * ExceptionalThreadMode} and priority.
+     *
+     * @param handler
      */
     public void registerHandler(Object handler) {
         Class<?> handlerClass = handler.getClass();
@@ -299,7 +331,15 @@ public class EventBus {
         }
     }
 
-    // Must be called in synchronized block
+    /**
+     * Registers a subscription, which consists of an association between a subscriber object and a subscriber method,
+     * which will be invoked to handle a given event.
+     *
+     * Important: Must be called in synchronized block.
+     *
+     * @param subscriber
+     * @param subscriberMethod
+     */
     private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
         Class<?> eventType = subscriberMethod.eventType;
         Subscription newSubscription = new Subscription(subscriber, subscriberMethod);
@@ -350,7 +390,15 @@ public class EventBus {
         }
     }
 
-    // Must be called in synchronized block
+    /**
+     * Registers a handlement, which consists of an association between a handler object and a handler method,
+     * which will be invoked to handle a given exceptional event.
+     *
+     * Important: Must be called in synchronized block.
+     *
+     * @param handler
+     * @param handlerMethod
+     */
     private void handle(Object handler, HandlerMethod handlerMethod) {
         Class<?> exceptionalEventType = handlerMethod.exceptionalEventType;
         Handlement newHandlement = new Handlement(handler, handlerMethod);
@@ -391,17 +439,25 @@ public class EventBus {
                     Class<?> candidateExceptionalEventType = entry.getKey();
                     if (exceptionalEventType.isAssignableFrom(candidateExceptionalEventType)) {
                         Object stickyExceptionalEvent = entry.getValue();
-                        checkThrowsStickyExceptionalEventToHandlement(newHandlement, stickyExceptionalEvent);
+                        checkThrowsExceptionalStickyEventToHandlement(newHandlement, stickyExceptionalEvent);
                     }
                 }
             } else {
                 Object stickyExceptionalEvent = stickyExceptionalEvents.get(exceptionalEventType);
-                checkThrowsStickyExceptionalEventToHandlement(newHandlement, stickyExceptionalEvent);
+                checkThrowsExceptionalStickyEventToHandlement(newHandlement, stickyExceptionalEvent);
             }
         }
     }
 
-    // Must be called in synchronized block
+    /**
+     * Registers a class subscription, which consists of an association between a class,
+     * which has subscriber methods mapped, and one of these subscriber methods.
+     *
+     * Important: Must be called in synchronized block.
+     *
+     * @param subscriberClassType
+     * @param subscriberMethod
+     */
     private void subscribeClass(Class<?> subscriberClassType, SubscriberMethod subscriberMethod) {
         Class<?> eventType = subscriberMethod.eventType;
         SubscriberClass newSubscriberClass = new SubscriberClass(subscriberClassType, subscriberMethod);
@@ -425,7 +481,15 @@ public class EventBus {
         }
     }
 
-    // Must be called in synchronized block
+    /**
+     * Registers a class handlement, which consists of an association between a class,
+     * which has handler methods mapped, and one of these handler methods.
+     *
+     * Important: Must be called in synchronized block.
+     *
+     * @param handlerClassType
+     * @param handlerMethod
+     */
     private void handleClass(Class<?> handlerClassType, HandlerMethod handlerMethod) {
         Class<?> exceptionalEventType = handlerMethod.exceptionalEventType;
         HandlerClass newHandlerClass = new HandlerClass(handlerClassType, handlerMethod);
@@ -449,6 +513,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if there is a stick event to be posted.
+     *
+     * @param newSubscription
+     * @param stickyEvent
+     */
     private void checkPostStickyEventToSubscription(Subscription newSubscription, Object stickyEvent) {
         if (stickyEvent != null) {
             // If the subscriber is trying to abort the event, it will fail (event is not tracked in posting state)
@@ -457,33 +527,70 @@ public class EventBus {
         }
     }
 
-    private void checkThrowsStickyExceptionalEventToHandlement(Handlement newHandlement, Object stickyExceptionalEvent) {
-        if (stickyExceptionalEvent != null) {
+    /**
+     * Checks if there is a exceptional stick event to be throwed.
+     *
+     * @param newHandlement
+     * @param exceptionalStickyEvent
+     */
+    private void checkThrowsExceptionalStickyEventToHandlement(Handlement newHandlement, Object exceptionalStickyEvent) {
+        if (exceptionalStickyEvent != null) {
             // If the handler is trying to abort the exceptional event, it will fail (exceptional event is not tracked in throwing state)
             // --> Strange corner case, which we don't take care of here.
-            throwsToHandlement(newHandlement, stickyExceptionalEvent, isMainThread());
+            throwsToHandlement(newHandlement, exceptionalStickyEvent, isMainThread());
         }
     }
 
     /**
      * Checks if the current thread is running in the main thread.
-     * If there is no main thread support (e.g. non-Android), "true" is always returned. In that case MAIN thread
-     * subscribers are always called in posting thread, and BACKGROUND subscribers are always called from a background
-     * poster.
+     * If there is no main thread support (e.g. non-Android), "true" is always returned.
+     * In that case MAIN thread subscribers are always called in posting thread,
+     * and BACKGROUND subscribers are always called from a background poster.
+     *
+     * @return
      */
     private boolean isMainThread() {
         return mainThreadSupport == null || mainThreadSupport.isMainThread();
     }
 
-    public synchronized boolean isRegistered(Object subscriber) {
+    /**
+     * Checks if the object is registered as subscriber and handler.
+     *
+     * @param object
+     * @return
+     */
+    public synchronized boolean isRegistered(Object object) {
+        return isRegisteredSubscriber(object)
+                && isRegisteredHandler(object);
+    }
+
+    /**
+     * Checks if the subscriber object is registered.
+     *
+     * @param subscriber
+     * @return
+     */
+    public synchronized boolean isRegisteredSubscriber(Object subscriber) {
         return typesBySubscriber.containsKey(subscriber);
     }
 
+    /**
+     * Checks if the handler object is registered.
+     *
+     * @param handler
+     * @return
+     */
     public synchronized boolean isRegisteredHandler(Object handler) {
         return typesByHandler.containsKey(handler);
     }
 
-    /** Only updates subscriptionsByEventType, not typesBySubscriber! Caller must update typesBySubscriber. */
+    /**
+     * Unregisters the given subcriber object from the event type.
+     * Important: Only updates subscriptionsByEventType, not typesBySubscriber! Caller must update typesBySubscriber.
+     *
+     * @param subscriber
+     * @param eventType
+     */
     private void unsubscribeByEventType(Object subscriber, Class<?> eventType) {
         List<Subscription> subscriptions = subscriptionsByEventType.get(eventType);
         if (subscriptions != null) {
@@ -500,7 +607,13 @@ public class EventBus {
         }
     }
 
-    /** Only updates handlementsByExceptionalEventType, not typesByHandler! Caller must update typesByHandler. */
+    /**
+     * Unregisters the given handler object from the exceptional event type.
+     * Important: Only updates handlementsByExceptionalEventType, not typesByHandler! Caller must update typesByHandler.
+     *
+     * @param handler
+     * @param exceptionalEventType
+     */
     private void unhandleByExceptionalEventType(Object handler, Class<?> exceptionalEventType) {
         List<Handlement> handlements = handlementsByExceptionalEventType.get(exceptionalEventType);
         if (handlements != null) {
@@ -517,13 +630,21 @@ public class EventBus {
         }
     }
 
-    /** Unregisters the given object from all event and exceptional event classes. */
+    /**
+     * Unregisters the given object from all event and exceptional event classes.
+     *
+     * @param object
+     */
     public synchronized void unregister(Object object) {
         unregisterSubscriber(object);
         unregisterHandler(object);
     }
 
-    /** Unregisters the given subscriber from all event classes. */
+    /**
+     * Unregisters the given subscriber from all event classes.
+     *
+     * @param subscriber
+     */
     public synchronized void unregisterSubscriber(Object subscriber) {
         List<Class<?>> subscribedTypes = typesBySubscriber.get(subscriber);
         if (subscribedTypes != null) {
@@ -536,7 +657,11 @@ public class EventBus {
         }
     }
 
-    /** Unregisters the given handler from all exceptional event classes. */
+    /**
+     * Unregisters the given handler from all exceptional event classes.
+     *
+     * @param handler
+     */
     public synchronized void unregisterHandler(Object handler) {
         List<Class<?>> handledTypes = typesByHandler.get(handler);
         if (handledTypes != null) {
@@ -549,7 +674,11 @@ public class EventBus {
         }
     }
 
-    /** Posts the given event to the event bus. */
+    /**
+     * Posts the given event to the event bus.
+     *
+     * @param event
+     */
     public void post(Object event) {
         synchronized (event) {
             //Register classes with methods mapped as subscribe or handle.
@@ -577,7 +706,11 @@ public class EventBus {
         }
     }
 
-    /** Posts the given exceptional event to the event bus. */
+    /**
+     * Posts the given exceptional event to the event bus.
+     *
+     * @param exceptionalEvent
+     */
     public void throwsException(Object exceptionalEvent) {
         synchronized (exceptionalEvent) {
             //Register classes with methods mapped as subscribe or handle.
@@ -605,14 +738,10 @@ public class EventBus {
         }
     }
 
-    public static boolean isIntentAvailable(Context ctx, Intent intent) {
-        final PackageManager mgr = ctx.getPackageManager();
-        List<ResolveInfo> list =
-                mgr.queryIntentActivities(intent,
-                        PackageManager.MATCH_DEFAULT_ONLY);
-        return list.size() > 0;
-    }
-
+    /**
+     * Identifies and stores data from classes that have mapped methods to perform
+     * the processing of common events or exceptional events.
+     */
     public void registerMappedClasses() {
         if(mappedClassesRegistrationPerformed)
             return;
@@ -672,10 +801,11 @@ public class EventBus {
 
     /**
      * Called from a subscriber's event handling method, further event delivery will be canceled. Subsequent
-     * subscribers
-     * won't receive the event. Events are usually canceled by higher priority subscribers (see
+     * subscribers won't receive the event. Events are usually canceled by higher priority subscribers (see
      * {@link Subscribe#priority()}). Canceling is restricted to event handling methods running in posting thread
      * {@link ThreadMode#POSTING}.
+     *
+     * @param event
      */
     public void cancelEventDelivery(Object event) {
         PostingThreadState postingState = currentImmediatePostingThreadState.get();
@@ -698,6 +828,8 @@ public class EventBus {
      * handlers won't receive the exceptional event. Exceptional events are usually canceled by higher priority handlers (see
      * {@link Handle#priority()}). Canceling is restricted to exceptional event handling methods running in throwing thread
      * {@link ExceptionalThreadMode#THROWING}.
+     *
+     * @param exceptionalEvent
      */
     public void cancelExceptionalEventDelivery(Object exceptionalEvent) {
         ThrowingThreadState throwingState = currentImmediateThrowingThreadState.get();
@@ -718,6 +850,8 @@ public class EventBus {
     /**
      * Posts the given event to the event bus and holds on to the event (because it is sticky). The most recent sticky
      * event of an event's type is kept in memory for future access by subscribers using {@link Subscribe#sticky()}.
+     *
+     * @param event
      */
     public void postSticky(Object event) {
         synchronized (stickyEvents) {
@@ -730,6 +864,8 @@ public class EventBus {
     /**
      * Posts the given exceptional event to the event bus and holds on to the exceptional event (because it is sticky). The most recent sticky
      * exceptional event of an exceptional event's type is kept in memory for future access by handlers using {@link Handle#sticky()}.
+     *
+     * @param exceptionalEvent
      */
     public void throwsSticky(Object exceptionalEvent) {
         synchronized (stickyExceptionalEvents) {
@@ -743,6 +879,10 @@ public class EventBus {
      * Gets the most recent sticky event for the given type.
      *
      * @see #postSticky(Object)
+     *
+     * @param eventType
+     * @param <T>
+     * @return
      */
     public <T> T getStickyEvent(Class<T> eventType) {
         synchronized (stickyEvents) {
@@ -754,6 +894,10 @@ public class EventBus {
      * Gets the most recent sticky exceptional event for the given type.
      *
      * @see #throwsSticky(Object)
+     *
+     * @param exceptionalEventType
+     * @param <T>
+     * @return
      */
     public <T> T getStickyExceptionalEvent(Class<T> exceptionalEventType) {
         synchronized (stickyExceptionalEvents) {
@@ -765,6 +909,10 @@ public class EventBus {
      * Remove and gets the recent sticky event for the given event type.
      *
      * @see #postSticky(Object)
+     *
+     * @param eventType
+     * @param <T>
+     * @return
      */
     public <T> T removeStickyEvent(Class<T> eventType) {
         synchronized (stickyEvents) {
@@ -776,6 +924,10 @@ public class EventBus {
      * Remove and gets the recent sticky exceptional event for the given exceptional event type.
      *
      * @see #throwsSticky(Object)
+     *
+     * @param exceptionalEventType
+     * @param <T>
+     * @return
      */
     public <T> T removeStickyExceptionalEvent(Class<T> exceptionalEventType) {
         synchronized (stickyExceptionalEvents) {
@@ -785,8 +937,10 @@ public class EventBus {
 
     /**
      * Removes the sticky event if it equals to the given event.
+     * Returns true if the events matched and the sticky event was removed.
      *
-     * @return true if the events matched and the sticky event was removed.
+     * @param event
+     * @return
      */
     public boolean removeStickyEvent(Object event) {
         synchronized (stickyEvents) {
@@ -803,8 +957,10 @@ public class EventBus {
 
     /**
      * Removes the sticky exceptional event if it equals to the given exceptional event.
+     * Returns true if the events matched and the sticky exceptional event was removed.
      *
-     * @return true if the events matched and the sticky exceptional event was removed.
+     * @param exceptionalEvent
+     * @return
      */
     public boolean removeStickyExceptionalEvent(Object exceptionalEvent) {
         synchronized (stickyExceptionalEvents) {
@@ -829,7 +985,7 @@ public class EventBus {
     }
 
     /**
-     * Removes all sticky exceptional events.
+     * Removes all exceptional sticky events.
      */
     public void removeAllExceptionalStickyEvents() {
         synchronized (stickyExceptionalEvents) {
@@ -837,10 +993,21 @@ public class EventBus {
         }
     }
 
+    /**
+     * Performs post processing of all events that are in the queue.
+     *
+     * @param postingState
+     */
     private void processPostingThread(PostingThreadState postingState) {
         processPostingThread(null, postingState);
     }
 
+    /**
+     * Performs post processing of all events in which the subscriber object is registered.
+     *
+     * @param subscriber
+     * @param postingState
+     */
     private void processPostingThread(Object subscriber, PostingThreadState postingState) {
         List<Object> eventQueue = postingState.eventQueue;
 
@@ -873,10 +1040,21 @@ public class EventBus {
         }
     }
 
+    /**
+     * Performs post (throw) processing of all exceptional events that are in the queue.
+     *
+     * @param throwingState
+     */
     private void processThrowingThread(ThrowingThreadState throwingState) {
         processThrowingThread(null, throwingState);
     }
 
+    /**
+     * Performs post (throw) processing of all exceptional events in which the handler object is registered.
+     *
+     * @param handler
+     * @param throwingState
+     */
     private void processThrowingThread(Object handler, ThrowingThreadState throwingState) {
         List<Object> eventQueue = throwingState.exceptionalEventQueue;
 
@@ -909,6 +1087,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Post a specific event for all registered subscriber objects.
+     *
+     * @param event
+     * @param postingState
+     * @throws Error
+     */
     private void postSingleEvent(Object event, PostingThreadState postingState) throws Error {
         Class<?> eventClass = event.getClass();
         boolean subscriptionFound = false;
@@ -933,6 +1118,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Post a specific exceptional event for all registered handler objects.
+     *
+     * @param exceptionalEvent
+     * @param throwingState
+     * @throws Error
+     */
     private void throwsSingleExceptionalEvent(Object exceptionalEvent, ThrowingThreadState throwingState) throws Error {
         Class<?> exceptionalEventClass = exceptionalEvent.getClass();
         boolean handlementFound = false;
@@ -957,6 +1149,13 @@ public class EventBus {
         }
     }
 
+    /**
+     *
+     * @param event
+     * @param postingState
+     * @param eventClass
+     * @return
+     */
     private boolean postSingleEventForEventType(Object event, PostingThreadState postingState, Class<?> eventClass) {
         CopyOnWriteArrayList<Subscription> subscriptions;
         synchronized (this) {
@@ -984,6 +1183,13 @@ public class EventBus {
         return false;
     }
 
+    /**
+     *
+     * @param exceptionalEvent
+     * @param throwingState
+     * @param exceptionalEventClass
+     * @return
+     */
     private boolean throwsSingleExceptionalEventForExceptionalEventType(Object exceptionalEvent, ThrowingThreadState throwingState, Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<Handlement> handlements;
         synchronized (this) {
@@ -1011,15 +1217,33 @@ public class EventBus {
         return false;
     }
 
+    /**
+     * Checks if there is any registered subscriber object to be invoked to process the event.
+     *
+     * @param event
+     * @return
+     */
     public boolean hasSubscriberForEvent(Object event) {
-        return (event == null) ? false : hasSubscriberForEventClass(event.getClass());
+        return (event == null) ? false : hasSubscriberForEventType(event.getClass());
     }
 
+    /**
+     * Checks if there is any registered handler object to be invoked to process the exceptional event.
+     *
+     * @param exceptionalEvent
+     * @return
+     */
     public boolean hasHandlerForExceptionalEvent(Object exceptionalEvent) {
-        return (exceptionalEvent == null) ? false : hasHandlerForExceptionalEventClass(exceptionalEvent.getClass());
+        return (exceptionalEvent == null) ? false : hasHandlerForExceptionalEventType(exceptionalEvent.getClass());
     }
 
-    public boolean hasSubscriberForEventClass(Class<?> eventClass) {
+    /**
+     * Checks if there is any registered subscriber object to be invoked to process this type of event.
+     *
+     * @param eventClass
+     * @return
+     */
+    public boolean hasSubscriberForEventType(Class<?> eventClass) {
         List<Class<?>> eventTypes = lookupAllEventTypes(eventClass);
         if (eventTypes != null) {
             int countTypes = eventTypes.size();
@@ -1033,7 +1257,13 @@ public class EventBus {
         return false;
     }
 
-    public boolean hasHandlerForExceptionalEventClass(Class<?> exceptionalEventClass) {
+    /**
+     * Checks if there is any registered handler object to be invoked to process this type of exceptional event.
+     *
+     * @param exceptionalEventClass
+     * @return
+     */
+    public boolean hasHandlerForExceptionalEventType(Class<?> exceptionalEventClass) {
         List<Class<?>> exceptionalEventTypes = lookupAllExceptionalEventTypes(exceptionalEventClass);
         if (exceptionalEventTypes != null) {
             int countTypes = exceptionalEventTypes.size();
@@ -1047,6 +1277,12 @@ public class EventBus {
         return false;
     }
 
+    /**
+     * Checks if there is any subscription associated with this type of event.
+     *
+     * @param eventClass
+     * @return
+     */
     private boolean hasSubscriptionForEventType(Class<?> eventClass) {
         CopyOnWriteArrayList<Subscription> subscriptions = null;
         synchronized (this) {
@@ -1055,6 +1291,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if there is any handlement associated with this type of exceptional event.
+     *
+     * @param exceptionalEventClass
+     * @return
+     */
     private boolean hasHandlementForExceptionalEventType(Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<Handlement> handlements = null;
         synchronized (this) {
@@ -1063,39 +1305,77 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if there is any class, which does not necessarily have any instance registered as a subscriber,
+     * that has a mapped method to be invoked to process the event.
+     *
+     * @param event
+     * @return
+     */
     public boolean hasSubscriberClassForEvent(Object event) {
-        Class<?> eventClass = event.getClass();
-        boolean subscriptionFound = false;
-        if (eventInheritance) {
-            List<Class<?>> eventTypes = lookupAllEventTypes(eventClass);
+        return (event == null) ? false : hasSubscriberClassForEventType(event.getClass());
+    }
+
+    /**
+     * Checks if there is any class, which does not necessarily have any instance registered as a handler,
+     * that has a mapped method to be invoked to process the exceptional event.
+     *
+     * @param exceptionalEvent
+     * @return
+     */
+    public boolean hasHandlerClassForExceptionalEvent(Object exceptionalEvent) {
+        return (exceptionalEvent == null) ? false : hasHandlerClassForExceptionalEventType(exceptionalEvent.getClass());
+    }
+
+    /**
+     * Checks if there is any class, which does not necessarily have any instance registered as a subscriber,
+     * that has a mapped method to be invoked to process this type of event.
+     *
+     * @param eventClass
+     * @return
+     */
+    public boolean hasSubscriberClassForEventType(Class<?> eventClass) {
+        List<Class<?>> eventTypes = lookupAllEventTypes(eventClass);
+        if (eventTypes != null) {
             int countTypes = eventTypes.size();
             for (int h = 0; h < countTypes; h++) {
                 Class<?> clazz = eventTypes.get(h);
-                subscriptionFound |= hasSubscriptionClassForEventType(clazz);
+                if (hasClassSubscriptionForEventType(clazz)) {
+                    return true;
+                }
             }
-        } else {
-            subscriptionFound = hasSubscriptionClassForEventType(eventClass);
         }
-        return subscriptionFound;
+        return false;
     }
 
-    public boolean hasHandlerClassForExceptionalEvent(Object exceptionalEvent) {
-        Class<?> exceptionalEventClass = exceptionalEvent.getClass();
-        boolean handlementFound = false;
-        if (exceptionalEventInheritance) {
-            List<Class<?>> exceptionalEventTypes = lookupAllExceptionalEventTypes(exceptionalEventClass);
+    /**
+     * Checks if there is any class, which does not necessarily have any instance registered as a handler,
+     * that has a mapped method to be invoked to process this type of exceptional event.
+     *
+     * @param exceptionalEventClass
+     * @return
+     */
+    public boolean hasHandlerClassForExceptionalEventType(Class<?> exceptionalEventClass) {
+        List<Class<?>> exceptionalEventTypes = lookupAllExceptionalEventTypes(exceptionalEventClass);
+        if (exceptionalEventTypes != null) {
             int countTypes = exceptionalEventTypes.size();
             for (int h = 0; h < countTypes; h++) {
                 Class<?> clazz = exceptionalEventTypes.get(h);
-                handlementFound |= hasHandlementClassForExceptionalEventType(clazz);
+                if (hasClassHandlementClassForExceptionalEventType(clazz)) {
+                    return true;
+                }
             }
-        } else {
-            handlementFound = hasHandlementClassForExceptionalEventType(exceptionalEventClass);
         }
-        return handlementFound;
+        return false;
     }
 
-    private boolean hasSubscriptionClassForEventType(Class<?> eventClass) {
+    /**
+     * Checks if there is any 'subscription associated with this type of event.
+     *
+     * @param eventClass
+     * @return
+     */
+    private boolean hasClassSubscriptionForEventType(Class<?> eventClass) {
         CopyOnWriteArrayList<SubscriberClass> subscriberClasses;
         synchronized (this) {
             subscriberClasses = subscriberClassesByEventType.get(eventClass);
@@ -1103,7 +1383,13 @@ public class EventBus {
         }
     }
 
-    private boolean hasHandlementClassForExceptionalEventType(Class<?> exceptionalEventClass) {
+    /**
+     * Checks if there is any handlement associated with this type of exceptional event.
+     *
+     * @param exceptionalEventClass
+     * @return
+     */
+    private boolean hasClassHandlementClassForExceptionalEventType(Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<HandlerClass> handlerClasses;
         synchronized (this) {
             handlerClasses = handlerClassesByExceptionalEventType.get(exceptionalEventClass);
@@ -1111,6 +1397,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if the subscriber object is registered for the event.
+     *
+     * @param subscriber
+     * @param event
+     * @return
+     */
     private boolean isSubscriberForEvent(Object subscriber, Object event) {
         Class<?> eventClass = event.getClass();
         Class<?> subscriberClass = subscriber.getClass();
@@ -1128,6 +1421,13 @@ public class EventBus {
         return subscriptionFound;
     }
 
+    /**
+     * Checks if the handler object is registered for the exceptional event.
+     *
+     * @param handler
+     * @param exceptionalEvent
+     * @return
+     */
     private boolean isHandlerForExceptionalEvent(Object handler, Object exceptionalEvent) {
         Class<?> exceptionalEventClass = exceptionalEvent.getClass();
         Class<?> handlerClass = handler.getClass();
@@ -1145,6 +1445,13 @@ public class EventBus {
         return handlementFound;
     }
 
+    /**
+     * Checks if the subscriber object is registered for this type of event.
+     *
+     * @param subscriberClass
+     * @param eventClass
+     * @return
+     */
     private boolean isSubscriberForEventType(Class<?> subscriberClass, Class<?> eventClass) {
         CopyOnWriteArrayList<Subscription> subscriptions;
         synchronized (this) {
@@ -1159,6 +1466,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if the handler object is registered for this type of exceptional event.
+     *
+     * @param handlerClass
+     * @param exceptionalEventClass
+     * @return
+     */
     private boolean isHandlerForExceptionalEventType(Class<?> handlerClass, Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<Handlement> handlements;
         synchronized (this) {
@@ -1173,9 +1487,16 @@ public class EventBus {
         }
     }
 
-    private boolean isSubscriberClassForEvent(Object subscriber, Object event) {
+    /**
+     * Checks if the class is registered as 'subscriber class' for the event.
+     * Subscriber class is a class which has methods mapped as subscriber for the event.
+     *
+     * @param subscriberClass
+     * @param event
+     * @return
+     */
+    private boolean isSubscriberClassForEvent(Class<?> subscriberClass, Object event) {
         Class<?> eventClass = event.getClass();
-        Class<?> subscriberClass = subscriber.getClass();
         boolean subscriptionFound = false;
         if (eventInheritance) {
             List<Class<?>> eventTypes = lookupAllEventTypes(eventClass);
@@ -1190,9 +1511,16 @@ public class EventBus {
         return subscriptionFound;
     }
 
-    private boolean isHandlerClassForExceptionalEvent(Object handler, Object exceptionalEvent) {
+    /**
+     * Checks if the class is registered as 'handler class' for the exceptional event.
+     * Handler class is a class which has methods mapped as handler for the exceptional event.
+     *
+     * @param handlerClass
+     * @param exceptionalEvent
+     * @return
+     */
+    private boolean isHandlerClassForExceptionalEvent(Class<?> handlerClass, Object exceptionalEvent) {
         Class<?> exceptionalEventClass = exceptionalEvent.getClass();
-        Class<?> handlerClass = handler.getClass();
         boolean handlementFound = false;
         if (exceptionalEventInheritance) {
             List<Class<?>> exceptionalEventTypes = lookupAllExceptionalEventTypes(exceptionalEventClass);
@@ -1207,6 +1535,13 @@ public class EventBus {
         return handlementFound;
     }
 
+    /**
+     * Checks if the class is registered as 'subscriber class' for this type of event.
+     *
+     * @param subscriberClassType
+     * @param eventClass
+     * @return
+     */
     private boolean isSubscriberClassForEventType(Class<?> subscriberClassType, Class<?> eventClass) {
         CopyOnWriteArrayList<SubscriberClass> subscriberClasses;
         synchronized (this) {
@@ -1221,6 +1556,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Checks if the class is registered as 'handler class' for this type of exceptional event.
+     *
+     * @param handlerClassType
+     * @param exceptionalEventClass
+     * @return
+     */
     private boolean isHandlerClassForExceptionalEventType(Class<?> handlerClassType, Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<HandlerClass> handlerClasses;
         synchronized (this) {
@@ -1235,6 +1577,12 @@ public class EventBus {
         }
     }
 
+    /**
+     *
+     * @param subscription
+     * @param event
+     * @param isMainThread
+     */
     private void postToSubscription(Subscription subscription, Object event, boolean isMainThread) {
         switch (subscription.subscriberMethod.threadMode) {
             case POSTING:
@@ -1270,6 +1618,12 @@ public class EventBus {
         }
     }
 
+    /**
+     *
+     * @param handlement
+     * @param exceptionalEvent
+     * @param isMainThread
+     */
     private void throwsToHandlement(Handlement handlement, Object exceptionalEvent, boolean isMainThread) {
         switch (handlement.handlerMethod.threadMode) {
             case THROWING:
@@ -1305,6 +1659,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Prepare the event to be sent to the subscribers who will receive it through the late send queue.
+     *
+     * @param event
+     * @throws Error
+     */
     private void prepareLatePostingEvent(Object event) throws Error {
         Class<?> eventClass = event.getClass();
         boolean subscriberClassFound = false;
@@ -1320,6 +1680,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Prepares the exceptional event to be sent to the handlers who will receive it through the late send queue.
+     *
+     * @param exceptionalEvent
+     * @throws Error
+     */
     private void prepareLateThrowingExceptionalEvent(Object exceptionalEvent) throws Error {
         Class<?> exceptionalEventClass = exceptionalEvent.getClass();
         boolean handlerClassFound = false;
@@ -1335,6 +1701,18 @@ public class EventBus {
         }
     }
 
+    /**
+     * Prepares the event to be sent to subscribers who will receive it via the late send queue,
+     * requiring the type of event to be specified.
+     *
+     * This method aims to ensure that, if the subscriber object is activity, they will be started so that they receive the events.
+     * For this, it is necessary that the subscriber method has the {@link Subscribe#actionMode} parameter of the  {@link Subscribe} annotation
+     * with the {@link ActionMode#START_AND_SUBSCRIBE} value.
+     *
+     * @param event
+     * @param eventClass
+     * @return
+     */
     private boolean prepareLatePostingEventForEventType(Object event, Class<?> eventClass) {
         CopyOnWriteArrayList<SubscriberClass> subscriberClasses;
         synchronized (this) {
@@ -1346,13 +1724,24 @@ public class EventBus {
                 Intent intent = new Intent(context, subscriberClassType);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 context.startActivity(intent);
-                break;
             }
             return true;
         }
         return false;
     }
 
+    /**
+     * Prepares the exceptional event to be sent to handlers who will receive it via the late send queue,
+     * requiring the type of event to be specified.
+     *
+     * This method aims to ensure that, if the handler object is activity, they will be started so that they receive the exceptional events.
+     * For this, it is necessary that the handler method has the {@link Handle#actionMode} parameter of the  {@link Handle} annotation
+     * with the {@link ExceptionalActionMode#START_AND_HANDLE} value.
+     *
+     * @param exceptionalEvent
+     * @param exceptionalEventClass
+     * @return
+     */
     private boolean prepareLateThrowingExceptionalEventForExceptionalEventType(Object exceptionalEvent, Class<?> exceptionalEventClass) {
         CopyOnWriteArrayList<HandlerClass> handlerClasses;
         synchronized (this) {
@@ -1363,8 +1752,8 @@ public class EventBus {
                 if(handlerClass.handlerMethod.actionMode == ExceptionalActionMode.START_AND_HANDLE) {
                     Class<?> handlerClassType = handlerClass.handlerClass;
                     Intent intent = new Intent(context, handlerClassType);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     context.startActivity(intent);
-                    //break;
                 }
             }
             return true;
@@ -1372,7 +1761,12 @@ public class EventBus {
         return false;
     }
 
-    /** Looks up all Class objects including super classes and interfaces. Should also work for interfaces. */
+    /**
+     * Looks up all Class objects including super classes and interfaces. Should also work for interfaces.
+     *
+     * @param eventClass
+     * @return
+     */
     private static List<Class<?>> lookupAllEventTypes(Class<?> eventClass) {
         synchronized (eventTypesCache) {
             List<Class<?>> eventTypes = eventTypesCache.get(eventClass);
@@ -1390,7 +1784,12 @@ public class EventBus {
         }
     }
 
-    /** Looks up all Class objects including super classes and interfaces. Should also work for interfaces. */
+    /**
+     * Looks up all Class objects including super classes and interfaces. Should also work for interfaces.
+     *
+     * @param exceptionalEventClass
+     * @return
+     */
     private static List<Class<?>> lookupAllExceptionalEventTypes(Class<?> exceptionalEventClass) {
         synchronized (exceptionalEventTypesCache) {
             List<Class<?>> exceptionalEventTypes = exceptionalEventTypesCache.get(exceptionalEventClass);
@@ -1408,7 +1807,12 @@ public class EventBus {
         }
     }
 
-    /** Recurses through super interfaces. */
+    /**
+     * Recurses through super interfaces.
+     *
+     * @param eventTypes
+     * @param interfaces
+     */
     static void addInterfaces(List<Class<?>> eventTypes, Class<?>[] interfaces) {
         for (Class<?> interfaceClass : interfaces) {
             if (!eventTypes.contains(interfaceClass)) {
@@ -1423,6 +1827,8 @@ public class EventBus {
      * between {@link #unregisterSubscriber(Object)} and event delivery. Otherwise the event might be delivered after the
      * subscriber unregistered. This is particularly important for main thread delivery and registrations bound to the
      * live cycle of an Activity or Fragment.
+     *
+     * @param pendingPost
      */
     void invokeSubscriber(PendingPost pendingPost) {
         Object event = pendingPost.event;
@@ -1438,6 +1844,8 @@ public class EventBus {
      * between {@link #unregisterHandler(Object)} and exceptional event delivery. Otherwise the exceptional event might be delivered after the
      * handler unregistered. This is particularly important for main thread delivery and registrations bound to the
      * live cycle of an Activity or Fragment.
+     *
+     * @param pendingThrow
      */
     void invokeHandler(PendingThrow pendingThrow) {
         Object exceptionalEvent = pendingThrow.exceptionalEvent;
@@ -1448,6 +1856,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Invokes the subscriber to perform some processing on the event.
+     *
+     * @param subscription
+     * @param event
+     */
     void invokeSubscriber(Subscription subscription, Object event) {
         try {
             subscription.subscriberMethod.method.invoke(subscription.subscriber, event);
@@ -1458,6 +1872,12 @@ public class EventBus {
         }
     }
 
+    /**
+     * Invokes the handler to perform some processing on the exceptional event.
+     *
+     * @param handlement
+     * @param exceptionalEvent
+     */
     void invokeHandler(Handlement handlement, Object exceptionalEvent) {
         try {
             handlement.handlerMethod.method.invoke(handlement.handler, exceptionalEvent);
@@ -1468,6 +1888,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Process exception caught during invocation of the subscriber.
+     *
+     * @param subscription
+     * @param event
+     * @param cause
+     */
     private void handleSubscriberException(Subscription subscription, Object event, Throwable cause) {
         if (event instanceof SubscriberExceptionEvent) {
             if (logSubscriberExceptions) {
@@ -1494,6 +1921,13 @@ public class EventBus {
         }
     }
 
+    /**
+     * Process exception caught during invocation of the handler.
+     *
+     * @param handlement
+     * @param exceptionalEvent
+     * @param cause
+     */
     private void handleHandlerException(Handlement handlement, Object exceptionalEvent, Throwable cause) {
         if (exceptionalEvent instanceof HandlerExceptionExceptionalEvent) {
             if (logHandlerExceptions) {
@@ -1520,7 +1954,9 @@ public class EventBus {
         }
     }
 
-    /** For ThreadLocal, much faster to set (and get multiple values). */
+    /**
+     * For ThreadLocal, much faster to set (and get multiple values).
+     */
     final static class PostingThreadState {
         final List<Object> eventQueue = new ArrayList<>();
         boolean isPosting;
@@ -1540,7 +1976,9 @@ public class EventBus {
         }
     }
 
-    /** For ThreadLocal, much faster to set (and get multiple values). */
+    /**
+     * For ThreadLocal, much faster to set (and get multiple values).
+     */
     final static class ThrowingThreadState {
         final List<Object> exceptionalEventQueue = new ArrayList<>();
         boolean isThrowing;
@@ -1560,24 +1998,36 @@ public class EventBus {
         }
     }
 
+    /**
+     * Get method for executorService.
+     *
+     * @return
+     */
     ExecutorService getExecutorService() {
         return executorService;
     }
 
     /**
+     * Get method for logger.
      * For internal use only.
+     *
+     * @return
      */
     public Logger getLogger() {
         return logger;
     }
 
-    // Just an idea: we could provide a callback to post() to be notified, an alternative would be events, of course...
-    /* public */interface PostCallback {
+    /**
+     * Just an idea: we could provide a callback to post() to be notified, an alternative would be events, of course...
+     */
+    /* public */ interface PostCallback {
         void onPostCompleted(List<SubscriberExceptionEvent> exceptionEvents);
     }
 
-    // Just an idea: we could provide a callback to throws() to be notified, an alternative would be exceptional events, of course...
-    /* public */interface ThrowsCallback {
+    /**
+     * Just an idea: we could provide a callback to throws() to be notified, an alternative would be exceptional events, of course...
+     */
+    /* public */ interface ThrowsCallback {
         void onThrowsCompleted(List<HandlerExceptionExceptionalEvent> exceptionExceptionalEvents);
     }
 
