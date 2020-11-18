@@ -16,6 +16,8 @@
 package org.greenrobot.eventbus;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 
@@ -459,6 +461,12 @@ public class EventBus {
      * @param subscriberMethod
      */
     private void subscribeClass(Class<?> subscriberClassType, SubscriberMethod subscriberMethod) {
+        if(!ActionMode.isTypeEnableFor(subscriberClassType, subscriberMethod.actionMode)) {
+            throw new EventBusException("Type " + subscriberClassType
+                    + " is not an eligible type to use the actionMode "
+                    + subscriberMethod.actionMode + " in one of its subscriber methods.");
+        }
+
         Class<?> eventType = subscriberMethod.eventType;
         SubscriberClass newSubscriberClass = new SubscriberClass(subscriberClassType, subscriberMethod);
         CopyOnWriteArrayList<SubscriberClass> subscriberClasses = subscriberClassesByEventType.get(eventType);
@@ -491,6 +499,12 @@ public class EventBus {
      * @param handlerMethod
      */
     private void handleClass(Class<?> handlerClassType, HandlerMethod handlerMethod) {
+        if(!ExceptionalActionMode.isTypeEnableFor(handlerClassType, handlerMethod.actionMode)) {
+            throw new EventBusException("Type " + handlerClassType
+                    + " is not an eligible type to use the actionMode "
+                    + handlerMethod.actionMode + " in one of its handler methods.");
+        }
+
         Class<?> exceptionalEventType = handlerMethod.exceptionalEventType;
         HandlerClass newHandlerClass = new HandlerClass(handlerClassType, handlerMethod);
         CopyOnWriteArrayList<HandlerClass> handlerClasses = handlerClassesByExceptionalEventType.get(exceptionalEventType);
@@ -787,7 +801,7 @@ public class EventBus {
                         }
 
                         if(hasSubscriberMethods || hasHandlerMethods) {
-                            System.out.println("REGISTERED: MappedClass [ " + classInPackage.getName() + "]");
+                            //System.out.println("REGISTERED: MappedClass [ " + classInPackage.getName() + "]");
                         }
                     } catch (ClassNotFoundException ex) {
                         ex.printStackTrace();
@@ -1720,10 +1734,23 @@ public class EventBus {
         }
         if (subscriberClasses != null && !subscriberClasses.isEmpty()) {
             for (SubscriberClass subscriberClass : subscriberClasses) {
-                Class<?> subscriberClassType = subscriberClass.subscriberClass;
-                Intent intent = new Intent(context, subscriberClassType);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
+                if(subscriberClass.subscriberMethod.actionMode == ActionMode.START_AND_SUBSCRIBE) {
+                    Class<?> subscriberClassType = subscriberClass.subscriberClass;
+                    if(ActionMode.isTypeEnableFor(subscriberClassType, ActionMode.START_AND_SUBSCRIBE)) {
+                        if(Activity.class.isAssignableFrom(subscriberClassType)) {
+                            Intent intent = new Intent(context, subscriberClassType);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(intent);
+                        }
+                        else if(Service.class.isAssignableFrom(subscriberClassType)) {
+                            Intent intent = new Intent(context, subscriberClassType);
+                            context.startService(intent);
+                        }
+                    }
+                    else {
+                        throw new EventBusException("The type of this subscriber is not enabled for the 'start and subscribe' action mode.");
+                    }
+                }
             }
             return true;
         }
@@ -1751,9 +1778,20 @@ public class EventBus {
             for (HandlerClass handlerClass : handlerClasses) {
                 if(handlerClass.handlerMethod.actionMode == ExceptionalActionMode.START_AND_HANDLE) {
                     Class<?> handlerClassType = handlerClass.handlerClass;
-                    Intent intent = new Intent(context, handlerClassType);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    context.startActivity(intent);
+                    if(ExceptionalActionMode.isTypeEnableFor(handlerClassType, ExceptionalActionMode.START_AND_HANDLE)) {
+                        if(Activity.class.isAssignableFrom(handlerClassType)) {
+                            Intent intent = new Intent(context, handlerClassType);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(intent);
+                        }
+                        else if(Service.class.isAssignableFrom(handlerClassType)) {
+                            Intent intent = new Intent(context, handlerClassType);
+                            context.startService(intent);
+                        }
+                    }
+                    else {
+                        throw new EventBusException("The type of this handler is not enabled for the 'start and handle' action mode.");
+                    }
                 }
             }
             return true;
