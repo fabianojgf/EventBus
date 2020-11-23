@@ -51,5 +51,4 @@ public class ClassMapPerfTest /* extends TestCase */ {
             Class value = map.get(CLAZZ.getName());
         }
     }
-
 }

@@ -29,21 +29,21 @@ import org.greenrobot.eventbus.ThreadMode;
 
 import java.util.ArrayList;
 
-import org.greenrobot.eventbusperf.testsubject.PerfTestEventBus;
-import org.greenrobot.eventbusperf.testsubject.PerfTestOtto;
+import org.greenrobot.eventbusperf.testsubject.PerfTestSubscriberEventBus;
+import org.greenrobot.eventbusperf.testsubject.PerfTestSubscriberOtto;
 
-public class TestSetupActivity extends Activity {
+public class TestSetupSubscriberActivity extends Activity {
 
     @SuppressWarnings("rawtypes")
-    static final Class[] TEST_CLASSES_EVENTBUS = {PerfTestEventBus.Post.class,//
-            PerfTestEventBus.RegisterOneByOne.class,//
-            PerfTestEventBus.RegisterAll.class, //
-            PerfTestEventBus.RegisterFirstTime.class};
+    static final Class[] TEST_CLASSES_EVENTBUS = {PerfTestSubscriberEventBus.Post.class,//
+            PerfTestSubscriberEventBus.RegisterOneByOne.class,//
+            PerfTestSubscriberEventBus.RegisterAll.class, //
+            PerfTestSubscriberEventBus.RegisterFirstTime.class};
 
-    static final Class[] TEST_CLASSES_OTTO = {PerfTestOtto.Post.class,//
-            PerfTestOtto.RegisterOneByOne.class,//
-            PerfTestOtto.RegisterAll.class, //
-            PerfTestOtto.RegisterFirstTime.class};
+    static final Class[] TEST_CLASSES_OTTO = {PerfTestSubscriberOtto.Post.class,//
+            PerfTestSubscriberOtto.RegisterOneByOne.class,//
+            PerfTestSubscriberOtto.RegisterAll.class, //
+            PerfTestSubscriberOtto.RegisterFirstTime.class};
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -72,7 +72,7 @@ public class TestSetupActivity extends Activity {
     }
 
     public void startClick(View v) {
-        TestParams params = new TestParams();
+        TestSubscriberParams params = new TestSubscriberParams();
         Spinner spinnerThread = findViewById(R.id.spinnerThread);
         String threadModeStr = spinnerThread.getSelectedItem().toString();
         ThreadMode threadMode = ThreadMode.valueOf(threadModeStr);
@@ -90,18 +90,18 @@ public class TestSetupActivity extends Activity {
         Spinner spinnerTestToRun = findViewById(R.id.spinnerTestToRun);
         int testPos = spinnerTestToRun.getSelectedItemPosition();
         params.setTestNumber(testPos + 1);
-        ArrayList<Class<? extends Test>> testClasses = initTestClasses(testPos);
+        ArrayList<Class<? extends TestSubscriber>> testClasses = initTestClasses(testPos);
         params.setTestClasses(testClasses);
 
         Intent intent = new Intent();
-        intent.setClass(this, TestRunnerActivity.class);
+        intent.setClass(this, TestRunnerSubscriberActivity.class);
         intent.putExtra("params", params);
         startActivity(intent);
     }
 
     @SuppressWarnings("unchecked")
-    private ArrayList<Class<? extends Test>> initTestClasses(int testPos) {
-        ArrayList<Class<? extends Test>> testClasses = new ArrayList<Class<? extends Test>>();
+    private ArrayList<Class<? extends TestSubscriber>> initTestClasses(int testPos) {
+        ArrayList<Class<? extends TestSubscriber>> testClasses = new ArrayList<Class<? extends TestSubscriber>>();
         // the attributes are putted in the intent (eventbus, otto, broadcast, local broadcast)
         final CheckBox checkBoxEventBus = findViewById(R.id.checkBoxEventBus);
         final CheckBox checkBoxOtto = findViewById(R.id.checkBoxOtto);

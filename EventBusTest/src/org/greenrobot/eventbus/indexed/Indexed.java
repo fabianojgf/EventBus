@@ -19,12 +19,16 @@ package org.greenrobot.eventbus.indexed;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.EventBusJavaTestsIndex;
 import org.greenrobot.eventbus.EventBusTestsIndex;
+import org.greenrobot.eventbus.meta.HandlerInfoIndex;
+import org.greenrobot.eventbus.meta.SubscriberInfoIndex;
 
 public class Indexed {
     static EventBus build() {
         return EventBus.builder()
-                .addIndex(new EventBusTestsIndex())
-                .addIndex(new EventBusJavaTestsIndex())
+                .addIndex((SubscriberInfoIndex) new EventBusTestsIndex())
+                .addIndex((HandlerInfoIndex) new EventBusTestsIndex())
+                .addIndex((SubscriberInfoIndex) new EventBusJavaTestsIndex())
+                .addIndex((HandlerInfoIndex) new EventBusJavaTestsIndex())
                 .build();
     }
 }

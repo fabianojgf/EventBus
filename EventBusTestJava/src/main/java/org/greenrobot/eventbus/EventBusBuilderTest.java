@@ -40,6 +40,19 @@ public class EventBusBuilderTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testThrowHandlerException() {
+        eventBus = EventBus.builder().throwHandlerException(true).build();
+        eventBus.registerHandler(new HandlerExceptionExceptionalEventTracker());
+        eventBus.registerHandler(new ThrowingHandler());
+        try {
+            eventBus.throwException("Foo");
+            fail("Should have thrown");
+        } catch (EventBusException e) {
+            // Expected
+        }
+    }
+
+    @Test
     public void testDoNotSendSubscriberExceptionEvent() {
         eventBus = EventBus.builder().logSubscriberExceptions(false).sendSubscriberExceptionEvent(false).build();
         eventBus.registerSubscriber(new SubscriberExceptionEventTracker());
@@ -49,11 +62,28 @@ public class EventBusBuilderTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testDoNotSendHandlerExceptionExceptionalEvent() {
+        eventBus = EventBus.builder().logHandlerExceptions(false).sendHandlerExceptionExceptionalEvent(false).build();
+        eventBus.registerHandler(new HandlerExceptionExceptionalEventTracker());
+        eventBus.registerHandler(new ThrowingHandler());
+        eventBus.throwException("Foo");
+        assertExceptionalEventCount(0);
+    }
+
+    @Test
     public void testDoNotSendNoSubscriberEvent() {
         eventBus = EventBus.builder().logNoSubscriberMessages(false).sendNoSubscriberEvent(false).build();
         eventBus.registerSubscriber(new NoSubscriberEventTracker());
         eventBus.post("Foo");
         assertEventCount(0);
+    }
+
+    @Test
+    public void testDoNotSendNoHandlerExceptionalEvent() {
+        eventBus = EventBus.builder().logNoHandlerMessages(false).sendNoHandlerExceptionalEvent(false).build();
+        eventBus.registerHandler(new NoHandlerExceptionalEventTracker());
+        eventBus.throwException("Foo");
+        assertExceptionalEventCount(0);
     }
 
     @Test
@@ -74,10 +104,25 @@ public class EventBusBuilderTest extends AbstractEventBusTest {
 
     @Test
     public void testEventInheritance() {
-        eventBus = EventBus.builder().eventInheritance(false).build();
+        eventBus = EventBus.builder()
+                .eventInheritance(false)
+                .exceptionalEventInheritance(false)
+                .build();
         eventBus.registerSubscriber(new ThrowingSubscriber());
         eventBus.post("Foo");
     }
+
+    @Test
+    public void testExceptionalEventInheritance() {
+        eventBus = EventBus.builder()
+                .exceptionalEventInheritance(false)
+                .eventInheritance(false)
+                .build();
+        eventBus.registerHandler(new ThrowingHandler());
+        eventBus.throwException("Foo");
+    }
+
+    /** Common flow */
 
     public class SubscriberExceptionEventTracker {
         @Subscribe
@@ -100,4 +145,26 @@ public class EventBusBuilderTest extends AbstractEventBusTest {
         }
     }
 
+    /** Exceptional flow */
+
+    public class HandlerExceptionExceptionalEventTracker {
+        @Handle
+        public void onExceptionalEvent(HandlerExceptionExceptionalEvent exceptionalEvent) {
+            trackExceptionalEvent(exceptionalEvent);
+        }
+    }
+
+    public class NoHandlerExceptionalEventTracker {
+        @Handle
+        public void onExceptionalEvent(NoHandlerExceptionalEvent exceptionalEvent) {
+            trackExceptionalEvent(exceptionalEvent);
+        }
+    }
+
+    public class ThrowingHandler {
+        @Handle
+        public void onExceptionalEvent(Object exceptionalEvent) {
+            throw new RuntimeException();
+        }
+    }
 }

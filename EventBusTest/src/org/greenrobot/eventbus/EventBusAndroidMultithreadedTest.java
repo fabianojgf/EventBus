@@ -29,9 +29,8 @@ import static org.junit.Assert.assertSame;
 
 @RunWith(AndroidJUnit4.class)
 public class EventBusAndroidMultithreadedTest extends EventBusMultithreadedTest {
-
     @Test
-    public void testSubscribeUnSubscribeAndPostMixedEventType() throws InterruptedException {
+    public void testSubscribeUnsubscribeAndPostMixedEventType() throws InterruptedException {
         List<SubscribeUnsubscribeThread> threads = new ArrayList<SubscribeUnsubscribeThread>();
 
         // Debug.startMethodTracing("testSubscribeUnSubscribeAndPostMixedEventType");
@@ -50,6 +49,29 @@ public class EventBusAndroidMultithreadedTest extends EventBusMultithreadedTest 
         }
         // Debug.stopMethodTracing();
     }
+
+    @Test
+    public void testHandleUnhandleAndThrowMixedExceptionalEventType() throws InterruptedException {
+        List<HandleUnhandleThread> threads = new ArrayList<HandleUnhandleThread>();
+
+        // Debug.startMethodTracing("testHandleUnhandleAndThrowMixedExceptionalEventType");
+        for (int i = 0; i < 5; i++) {
+            HandleUnhandleThread thread = new HandleUnhandleThread();
+            thread.start();
+            threads.add(thread);
+        }
+        // This test takes a bit longer, so just use fraction the regular count
+        runThreadsMixedExceptionalEventType(COUNT / 4, 5);
+        for (HandleUnhandleThread thread : threads) {
+            thread.shutdown();
+        }
+        for (HandleUnhandleThread thread : threads) {
+            thread.join();
+        }
+        // Debug.stopMethodTracing();
+    }
+
+    /** Common flow */
 
     public class SubscribeUnsubscribeThread extends Thread {
         boolean running = true;
@@ -97,4 +119,51 @@ public class EventBusAndroidMultithreadedTest extends EventBusMultithreadedTest 
         }
     }
 
+    /** Exceptional flow */
+
+    public class HandleUnhandleThread extends Thread {
+        boolean running = true;
+
+        public void shutdown() {
+            running = false;
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (running) {
+                    eventBus.registerHandler(this);
+                    double random = Math.random();
+                    if (random > 0.6d) {
+                        Thread.sleep(0, (int) (1000000 * Math.random()));
+                    } else if (random > 0.3d) {
+                        Thread.yield();
+                    }
+                    eventBus.unregisterHandler(this);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Handle(threadMode = ExceptionalThreadMode.MAIN)
+        public void onExceptionalEventMainThread(String exceptionalEvent) {
+            assertSame(Looper.getMainLooper(), Looper.myLooper());
+        }
+
+        @Handle(threadMode = ExceptionalThreadMode.BACKGROUND)
+        public void onExceptionalEventBackgroundThread(Integer exceptionalEvent) {
+            assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+        }
+
+        @Handle
+        public void onExceptionalEvent(Object exceptionalEvent) {
+            assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+        }
+
+        @Handle(threadMode = ExceptionalThreadMode.ASYNC)
+        public void onExceptionalEventAsync(Object exceptionalEvent) {
+            assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+        }
+    }
 }

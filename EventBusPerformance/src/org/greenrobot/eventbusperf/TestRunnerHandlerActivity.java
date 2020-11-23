@@ -24,6 +24,8 @@ import android.view.View;
 import android.widget.TextView;
 
 import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.ExceptionalThreadMode;
+import org.greenrobot.eventbus.Handle;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
@@ -32,9 +34,9 @@ import org.greenrobot.eventbus.ThreadMode;
  * after that, if a test is finished. When a test is finished, the activity appends it on the textview analyse. If all
  * test are finished, it cancels the timer.
  */
-public class TestRunnerActivity extends Activity {
+public class TestRunnerHandlerActivity extends Activity {
 
-    private TestRunner testRunner;
+    private TestHandlerRunner testHandlerRunner;
     private EventBus controlBus;
     private TextView textViewResult;
 
@@ -44,36 +46,36 @@ public class TestRunnerActivity extends Activity {
         setContentView(R.layout.activity_runtests);
         textViewResult = findViewById(R.id.textViewResult);
         controlBus = new EventBus(this);
-        controlBus.register(this);
+        controlBus.registerHandler(this);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (testRunner == null) {
-            TestParams testParams = (TestParams) getIntent().getSerializableExtra("params");
-            testRunner = new TestRunner(getApplicationContext(), testParams, controlBus);
+        if (testHandlerRunner == null) {
+            TestHandlerParams testParams = (TestHandlerParams) getIntent().getSerializableExtra("params");
+            testHandlerRunner = new TestHandlerRunner(getApplicationContext(), testParams, controlBus);
 
             if (testParams.getTestNumber() == 1) {
                 textViewResult.append("Events: " + testParams.getEventCount() + "\n");
             }
-            textViewResult.append("Subscribers: " + testParams.getSubscriberCount() + "\n\n");
-            testRunner.start();
+            textViewResult.append("Handlers: " + testParams.getHandlerCount() + "\n\n");
+            testHandlerRunner.start();
         }
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    public void onEventMainThread(TestFinishedEvent event) {
-        Test test = event.test;
-        String text = "<b>" + test.getDisplayName() + "</b><br/>" + //
-                test.getPrimaryResultMicros() + " micro seconds<br/>" + //
-                ((int) test.getPrimaryResultRate()) + "/s<br/>";
-        if (test.getOtherTestResults() != null) {
-            text += test.getOtherTestResults();
+    @Handle(threadMode = ExceptionalThreadMode.MAIN)
+    public void onExceptionalEventMainThread(TestFinishedExceptionalEvent exceptionalEvent) {
+        TestHandler testHandler = exceptionalEvent.testHandler;
+        String text = "<b>" + testHandler.getDisplayName() + "</b><br/>" + //
+                testHandler.getPrimaryResultMicros() + " micro seconds<br/>" + //
+                ((int) testHandler.getPrimaryResultRate()) + "/s<br/>";
+        if (testHandler.getOtherTestResults() != null) {
+            text += testHandler.getOtherTestResults();
         }
         text += "<br/>----------------<br/>";
         textViewResult.append(Html.fromHtml(text));
-        if (event.isLastEvent) {
+        if (exceptionalEvent.isLastExceptionalEvent) {
             findViewById(R.id.buttonCancel).setVisibility(View.GONE);
             findViewById(R.id.textViewTestRunning).setVisibility(View.GONE);
             findViewById(R.id.buttonKillProcess).setVisibility(View.VISIBLE);
@@ -82,9 +84,9 @@ public class TestRunnerActivity extends Activity {
 
     public void onClickCancel(View view) {
         // Cancel asap
-        if (testRunner != null) {
-            testRunner.cancel();
-            testRunner = null;
+        if (testHandlerRunner != null) {
+            testHandlerRunner.cancel();
+            testHandlerRunner = null;
         }
         finish();
     }
@@ -94,10 +96,10 @@ public class TestRunnerActivity extends Activity {
     }
 
     public void onDestroy() {
-        if (testRunner != null) {
-            testRunner.cancel();
+        if (testHandlerRunner != null) {
+            testHandlerRunner.cancel();
         }
-        controlBus.unregister(this);
+        controlBus.unregisterHandler(this);
         super.onDestroy();
     }
 }

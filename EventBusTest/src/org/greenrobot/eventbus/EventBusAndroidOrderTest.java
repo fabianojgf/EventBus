@@ -13,23 +13,32 @@ import static org.junit.Assert.assertEquals;
 public class EventBusAndroidOrderTest extends AbstractAndroidEventBusTest {
 
     private TestBackgroundPoster backgroundPoster;
+    private TestBackgroundThrower backgroundThrower;
     private Handler handler;
 
     @Before
     public void setUp() throws Exception {
         handler = new Handler(Looper.getMainLooper());
+        /** Common flow */
         backgroundPoster = new TestBackgroundPoster(eventBus);
         backgroundPoster.start();
+        /** Exceptional flow */
+        backgroundThrower = new TestBackgroundThrower(eventBus);
+        backgroundThrower.start();
     }
 
     @After
     public void tearDown() throws Exception {
+        /** Common flow */
         backgroundPoster.shutdown();
         backgroundPoster.join();
+        /** Exceptional flow */
+        backgroundThrower.shutdown();
+        backgroundThrower.join();
     }
 
     @Test
-    public void backgroundAndMainUnordered() {
+    public void backgroundPostAndMainUnordered() {
         eventBus.registerSubscriber(this);
 
         handler.post(new Runnable() {
@@ -50,7 +59,28 @@ public class EventBusAndroidOrderTest extends AbstractAndroidEventBusTest {
     }
 
     @Test
-    public void backgroundAndMainOrdered() {
+    public void backgroundThrowAndMainUnordered() {
+        eventBus.registerHandler(this);
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                // throw from non-main thread
+                backgroundThrower.throwException("non-main");
+                // throw from main thread
+                eventBus.throwException("main");
+            }
+        });
+
+        waitForExceptionalEventCount(2, 1000);
+
+        // observe that exceptional event from *main* thread is throwed FIRST
+        // NOT in throwing order
+        assertEquals("non-main", lastExceptionalEvent);
+    }
+
+    @Test
+    public void backgroundPostAndMainOrdered() {
         eventBus.registerSubscriber(this);
 
         handler.post(new Runnable() {
@@ -70,6 +100,29 @@ public class EventBusAndroidOrderTest extends AbstractAndroidEventBusTest {
         assertEquals("main", ((OrderedEvent) lastEvent).thread);
     }
 
+    @Test
+    public void backgroundThrowAndMainOrdered() {
+        eventBus.registerHandler(this);
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                // throw from non-main thread
+                backgroundThrower.throwException(new OrderedExceptionalEvent("non-main"));
+                // throw from main thread
+                eventBus.throwException(new OrderedExceptionalEvent("main"));
+            }
+        });
+
+        waitForExceptionalEventCount(2, 1000);
+
+        // observe that exceptional event from *main* thread is throwed LAST
+        // IN throwing order
+        assertEquals("main", ((OrderedExceptionalEvent) lastExceptionalEvent).thread);
+    }
+
+    /** Common flow */
+
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onEvent(String event) {
         trackEvent(event);
@@ -88,4 +141,23 @@ public class EventBusAndroidOrderTest extends AbstractAndroidEventBusTest {
         }
     }
 
+    /** Exceptional flow */
+
+    @Handle(threadMode = ExceptionalThreadMode.MAIN)
+    public void onExceptionalEvent(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.MAIN_ORDERED)
+    public void onExceptionalEvent(OrderedExceptionalEvent exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    static class OrderedExceptionalEvent {
+        String thread;
+
+        OrderedExceptionalEvent(String thread) {
+            this.thread = thread;
+        }
+    }
 }

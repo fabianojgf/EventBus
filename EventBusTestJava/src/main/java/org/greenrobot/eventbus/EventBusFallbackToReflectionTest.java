@@ -21,6 +21,152 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
 public class EventBusFallbackToReflectionTest extends AbstractEventBusTest {
+    @Test
+    public void testAnonymousSubscriberClass() {
+        Object subscriber = new Object() {
+            @Subscribe
+            public void onEvent(String event) {
+                trackEvent(event);
+            }
+        };
+        eventBus.registerSubscriber(subscriber);
+
+        eventBus.post("Hello");
+        assertEquals("Hello", lastEvent);
+        assertEquals(1, eventsReceived.size());
+    }
+
+    @Test
+    public void testAnonymousHandlerClass() {
+        Object handler = new Object() {
+            @Handle
+            public void onExceptionalEvent(String exceptionalEvent) {
+                trackExceptionalEvent(exceptionalEvent);
+            }
+        };
+        eventBus.registerHandler(handler);
+
+        eventBus.throwException("Hello");
+        assertEquals("Hello", lastExceptionalEvent);
+        assertEquals(1, exceptionalEventsReceived.size());
+    }
+
+    @Test
+    public void testAnonymousSubscriberClassWithPublicSuperclass() {
+        Object subscriber = new PublicClass() {
+            @Subscribe
+            public void onEvent(String event) {
+                trackEvent(event);
+            }
+        };
+        eventBus.registerSubscriber(subscriber);
+
+        eventBus.post("Hello");
+        assertEquals("Hello", lastEvent);
+        assertEquals(2, eventsReceived.size());
+    }
+
+    @Test
+    public void testAnonymousHandlerClassWithPublicSuperclass() {
+        Object handler = new PublicClassExceptional() {
+            @Handle
+            public void onExceptionalEvent(String exceptionalEvent) {
+                trackExceptionalEvent(exceptionalEvent);
+            }
+        };
+        eventBus.registerHandler(handler);
+
+        eventBus.throwException("Hello");
+        assertEquals("Hello", lastExceptionalEvent);
+        assertEquals(2, exceptionalEventsReceived.size());
+    }
+
+    @Test
+    public void testAnonymousSubscriberClassWithPrivateSuperclass() {
+        eventBus.registerSubscriber(new PublicWithPrivateSuperClass());
+        eventBus.post("Hello");
+        assertEquals("Hello", lastEvent);
+        assertEquals(2, eventsReceived.size());
+    }
+
+    @Test
+    public void testAnonymousHandlerClassWithPrivateSuperclass() {
+        eventBus.registerHandler(new PublicWithPrivateSuperClassExceptional());
+        eventBus.throwException("Hello");
+        assertEquals("Hello", lastExceptionalEvent);
+        assertEquals(2, exceptionalEventsReceived.size());
+    }
+
+    @Test
+    public void testSubscriberClassWithPrivateEvent() {
+        eventBus.registerSubscriber(new PublicClassWithPrivateEvent());
+        PrivateEvent privateEvent = new PrivateEvent();
+        eventBus.post(privateEvent);
+        assertEquals(privateEvent, lastEvent);
+        assertEquals(1, eventsReceived.size());
+    }
+
+    @Test
+    public void testHandlerClassWithPrivateExceptionalEvent() {
+        eventBus.registerHandler(new PublicClassExceptionalWithPrivateExceptionalEvent());
+        PrivateExceptionalEvent privateExceptionalEvent = new PrivateExceptionalEvent();
+        eventBus.throwException(privateExceptionalEvent);
+        assertEquals(privateExceptionalEvent, lastExceptionalEvent);
+        assertEquals(1, exceptionalEventsReceived.size());
+    }
+
+    @Test
+    public void testSubscriberClassWithPublicAndPrivateEvent() {
+        eventBus.registerSubscriber(new PublicClassWithPublicAndPrivateEvent());
+
+        eventBus.post("Hello");
+        assertEquals("Hello", lastEvent);
+        assertEquals(1, eventsReceived.size());
+
+        PrivateEvent privateEvent = new PrivateEvent();
+        eventBus.post(privateEvent);
+        assertEquals(privateEvent, lastEvent);
+        assertEquals(2, eventsReceived.size());
+    }
+
+    @Test
+    public void testHandlerClassWithPublicAndPrivateExceptionalEvent() {
+        eventBus.registerHandler(new PublicClassExceptionalWithPublicAndPrivateExceptionalEvent());
+
+        eventBus.throwException("Hello");
+        assertEquals("Hello", lastExceptionalEvent);
+        assertEquals(1, exceptionalEventsReceived.size());
+
+        PrivateExceptionalEvent privateExceptionalEvent = new PrivateExceptionalEvent();
+        eventBus.throwException(privateExceptionalEvent);
+        assertEquals(privateExceptionalEvent, lastExceptionalEvent);
+        assertEquals(2, exceptionalEventsReceived.size());
+    }
+
+    @Test
+    public void testSubscriberExtendingClassWithPrivateEvent() {
+        eventBus.registerSubscriber(new PublicWithPrivateEventInSuperclass());
+        PrivateEvent privateEvent = new PrivateEvent();
+        eventBus.post(privateEvent);
+        assertEquals(privateEvent, lastEvent);
+        assertEquals(2, eventsReceived.size());
+    }
+
+    @Test
+    public void testHandlerExtendingClassWithPrivateExceptionalEvent() {
+        eventBus.registerHandler(new PublicWithPrivateExceptionalEventInSuperclassExceptional());
+        PrivateExceptionalEvent privateExceptionalEvent = new PrivateExceptionalEvent();
+        eventBus.throwException(privateExceptionalEvent);
+        assertEquals(privateExceptionalEvent, lastExceptionalEvent);
+        assertEquals(2, exceptionalEventsReceived.size());
+    }
+
+    public EventBusFallbackToReflectionTest() {
+        super(true, true);
+    }
+
+    /** Common flow */
+
     private class PrivateEvent {
     }
 
@@ -71,78 +217,55 @@ public class EventBusFallbackToReflectionTest extends AbstractEventBusTest {
         }
     }
 
-    public EventBusFallbackToReflectionTest() {
-        super(true);
+    /** Exceptional flow */
+
+    private class PrivateExceptionalEvent {
     }
 
-    @Test
-    public void testAnonymousSubscriberClass() {
-        Object subscriber = new Object() {
-            @Subscribe
-            public void onEvent(String event) {
-                trackEvent(event);
-            }
-        };
-        eventBus.registerSubscriber(subscriber);
-
-        eventBus.post("Hello");
-        assertEquals("Hello", lastEvent);
-        assertEquals(1, eventsReceived.size());
+    public class PublicClassExceptional {
+        @Handle
+        public void onExceptionalEvent(Object any) {
+            trackExceptionalEvent(any);
+        }
     }
 
-    @Test
-    public void testAnonymousSubscriberClassWithPublicSuperclass() {
-        Object subscriber = new PublicClass() {
-            @Subscribe
-            public void onEvent(String event) {
-                trackEvent(event);
-            }
-        };
-        eventBus.registerSubscriber(subscriber);
-
-        eventBus.post("Hello");
-        assertEquals("Hello", lastEvent);
-        assertEquals(2, eventsReceived.size());
+    private class PrivateClassExceptional {
+        @Handle
+        public void onExceptionalEvent(Object any) {
+            trackExceptionalEvent(any);
+        }
     }
 
-    @Test
-    public void testAnonymousSubscriberClassWithPrivateSuperclass() {
-        eventBus.registerSubscriber(new PublicWithPrivateSuperClass());
-        eventBus.post("Hello");
-        assertEquals("Hello", lastEvent);
-        assertEquals(2, eventsReceived.size());
+    public class PublicWithPrivateSuperClassExceptional extends PrivateClassExceptional {
+        @Handle
+        public void onExceptionalEvent(String any) {
+            trackExceptionalEvent(any);
+        }
     }
 
-    @Test
-    public void testSubscriberClassWithPrivateEvent() {
-        eventBus.registerSubscriber(new PublicClassWithPrivateEvent());
-        PrivateEvent privateEvent = new PrivateEvent();
-        eventBus.post(privateEvent);
-        assertEquals(privateEvent, lastEvent);
-        assertEquals(1, eventsReceived.size());
+    public class PublicClassExceptionalWithPrivateExceptionalEvent {
+        @Handle
+        public void onExceptionalEvent(PrivateExceptionalEvent any) {
+            trackExceptionalEvent(any);
+        }
     }
 
-    @Test
-    public void testSubscriberClassWithPublicAndPrivateEvent() {
-        eventBus.registerSubscriber(new PublicClassWithPublicAndPrivateEvent());
+    public class PublicClassExceptionalWithPublicAndPrivateExceptionalEvent {
+        @Handle
+        public void onExceptionalEvent(String any) {
+            trackExceptionalEvent(any);
+        }
 
-        eventBus.post("Hello");
-        assertEquals("Hello", lastEvent);
-        assertEquals(1, eventsReceived.size());
-
-        PrivateEvent privateEvent = new PrivateEvent();
-        eventBus.post(privateEvent);
-        assertEquals(privateEvent, lastEvent);
-        assertEquals(2, eventsReceived.size());
+        @Handle
+        public void onExceptionalEvent(PrivateExceptionalEvent any) {
+            trackExceptionalEvent(any);
+        }
     }
 
-    @Test
-    public void testSubscriberExtendingClassWithPrivateEvent() {
-        eventBus.registerSubscriber(new PublicWithPrivateEventInSuperclass());
-        PrivateEvent privateEvent = new PrivateEvent();
-        eventBus.post(privateEvent);
-        assertEquals(privateEvent, lastEvent);
-        assertEquals(2, eventsReceived.size());
+    public class PublicWithPrivateExceptionalEventInSuperclassExceptional extends PublicClassExceptionalWithPrivateExceptionalEvent {
+        @Handle
+        public void onExceptionalEvent(Object any) {
+            trackExceptionalEvent(any);
+        }
     }
-
 }

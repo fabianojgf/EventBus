@@ -30,17 +30,17 @@ public class EventBusMainThreadRacingTest extends AbstractAndroidEventBusTest {
 
     private static final int ITERATIONS = LONG_TESTS ? 100000 : 1000;
 
-    protected boolean unregistered;
+    protected boolean unregisteredSubscriber, unregisteredHandler;
     private CountDownLatch startLatch;
     private volatile RuntimeException failed;
 
     @Test
-    public void testRacingThreads() throws InterruptedException {
+    public void testPostRacingThreads() throws InterruptedException {
         Runnable register = new Runnable() {
             @Override
             public void run() {
                 eventBus.registerSubscriber(EventBusMainThreadRacingTest.this);
-                unregistered = false;
+                unregisteredSubscriber = false;
             }
         };
 
@@ -48,7 +48,7 @@ public class EventBusMainThreadRacingTest extends AbstractAndroidEventBusTest {
             @Override
             public void run() {
                 eventBus.unregisterSubscriber(EventBusMainThreadRacingTest.this);
-                unregistered = true;
+                unregisteredSubscriber = true;
             }
         };
 
@@ -75,6 +75,47 @@ public class EventBusMainThreadRacingTest extends AbstractAndroidEventBusTest {
         }
     }
 
+    @Test
+    public void testThrowRacingThreads() throws InterruptedException {
+        Runnable register = new Runnable() {
+            @Override
+            public void run() {
+                eventBus.registerHandler(EventBusMainThreadRacingTest.this);
+                unregisteredHandler = false;
+            }
+        };
+
+        Runnable unregister = new Runnable() {
+            @Override
+            public void run() {
+                eventBus.unregisterHandler(EventBusMainThreadRacingTest.this);
+                unregisteredHandler = true;
+            }
+        };
+
+        startLatch = new CountDownLatch(2);
+        BackgroundThrower backgroundThrower = new BackgroundThrower();
+        backgroundThrower.start();
+        try {
+            Handler handler = new Handler(Looper.getMainLooper());
+            Random random = new Random();
+            countDownAndAwaitLatch(startLatch, 10);
+            for (int i = 0; i < ITERATIONS; i++) {
+                handler.post(register);
+                Thread.sleep(0, random.nextInt(300)); // Sleep just some nanoseconds, timing is crucial here
+                handler.post(unregister);
+                if (failed != null) {
+                    throw new RuntimeException("Failed in iteration " + i, failed);
+                }
+                // Don't let the queue grow to avoid out-of-memory scenarios
+                waitForHandler(handler);
+            }
+        } finally {
+            backgroundThrower.running = false;
+            backgroundThrower.join();
+        }
+    }
+
     protected void waitForHandler(Handler handler) {
         final CountDownLatch doneLatch = new CountDownLatch(1);
         handler.post(new Runnable() {
@@ -87,10 +128,12 @@ public class EventBusMainThreadRacingTest extends AbstractAndroidEventBusTest {
         awaitLatch(doneLatch, 10);
     }
 
+    /** Common flow */
+
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onEventMainThread(String event) {
         trackEvent(event);
-        if (unregistered) {
+        if (unregisteredSubscriber) {
             failed = new RuntimeException("Main thread event delivered while unregistered on received event #"
                     + eventCount);
         }
@@ -114,7 +157,36 @@ public class EventBusMainThreadRacingTest extends AbstractAndroidEventBusTest {
                 }
             }
         }
-
     }
 
+    /** Exceptional flow */
+
+    @Handle(threadMode = ExceptionalThreadMode.MAIN)
+    public void onExceptionalEventMainThread(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+        if (unregisteredHandler) {
+            failed = new RuntimeException("Main thread exceptional event delivered while unregistered on received event #"
+                    + eventCount);
+        }
+    }
+
+    class BackgroundThrower extends Thread {
+        volatile boolean running = true;
+
+        public BackgroundThrower() {
+            super("BackgroundThrower");
+        }
+
+        @Override
+        public void run() {
+            countDownAndAwaitLatch(startLatch, 10);
+            while (running) {
+                eventBus.throwException("Throwed in background");
+                if (Math.random() > 0.9f) {
+                    // Single cores would take very long without yielding
+                    Thread.yield();
+                }
+            }
+        }
+    }
 }

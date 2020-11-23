@@ -35,6 +35,16 @@ public class EventBusMethodModifiersTest extends AbstractAndroidEventBusTest {
         waitForEventCount(4, 1000);
     }
 
+    @Test
+    public void testRegisterForExceptionalEventTypeAndThrow() throws InterruptedException {
+        eventBus.registerHandler(this);
+        String exceptionalEvent = "Hello";
+        eventBus.throwException(exceptionalEvent);
+        waitForExceptionalEventCount(4, 1000);
+    }
+
+    /** Common flow */
+
     @Subscribe
     public void onEvent(String event) {
         trackEvent(event);
@@ -59,4 +69,29 @@ public class EventBusMethodModifiersTest extends AbstractAndroidEventBusTest {
         assertNotSame(Looper.getMainLooper(), Looper.myLooper());
     }
 
+    /** Exceptional flow */
+
+    @Handle
+    public void onExceptionalEvent(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+        assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.MAIN)
+    public void onExceptionalEventMainThread(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+        assertSame(Looper.getMainLooper(), Looper.myLooper());
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.BACKGROUND)
+    public void onExceptionalEventBackgroundThread(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+        assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.ASYNC)
+    public void onExceptionalEventAsync(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+        assertNotSame(Looper.getMainLooper(), Looper.myLooper());
+    }
 }

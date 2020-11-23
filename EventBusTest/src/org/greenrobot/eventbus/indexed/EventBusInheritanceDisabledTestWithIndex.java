@@ -18,6 +18,8 @@ package org.greenrobot.eventbus.indexed;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.EventBusTestsIndex;
+import org.greenrobot.eventbus.meta.HandlerInfoIndex;
+import org.greenrobot.eventbus.meta.SubscriberInfoIndex;
 import org.junit.Before;
 
 import org.greenrobot.eventbus.EventBusInheritanceDisabledTest;
@@ -25,6 +27,11 @@ import org.greenrobot.eventbus.EventBusInheritanceDisabledTest;
 public class EventBusInheritanceDisabledTestWithIndex extends EventBusInheritanceDisabledTest {
     @Before
     public void setUp() throws Exception {
-        eventBus = EventBus.builder().eventInheritance(false).addIndex(new EventBusTestsIndex()).build();
+        eventBus = EventBus.builder()
+                .eventInheritance(false)
+                .exceptionalEventInheritance(false)
+                .addIndex((SubscriberInfoIndex) new EventBusTestsIndex())
+                .addIndex((HandlerInfoIndex) new EventBusTestsIndex())
+                .build();
     }
 }

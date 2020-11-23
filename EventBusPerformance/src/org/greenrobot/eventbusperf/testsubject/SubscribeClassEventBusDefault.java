@@ -21,15 +21,15 @@ import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbusperf.TestEvent;
 
 public class SubscribeClassEventBusDefault {
-    private PerfTestEventBus perfTestEventBus;
+    private PerfTestSubscriberEventBus perfTestEventBusSubscriber;
 
-    public SubscribeClassEventBusDefault(PerfTestEventBus perfTestEventBus) {
-        this.perfTestEventBus = perfTestEventBus;
+    public SubscribeClassEventBusDefault(PerfTestSubscriberEventBus perfTestEventBusSubscriber) {
+        this.perfTestEventBusSubscriber = perfTestEventBusSubscriber;
     }
 
     @Subscribe
     public void onEvent(TestEvent event) {
-        perfTestEventBus.eventsReceivedCount.incrementAndGet();
+        perfTestEventBusSubscriber.eventsReceivedCount.incrementAndGet();
     }
 
     public void dummy() {

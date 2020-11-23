@@ -38,7 +38,7 @@ public class EventBusOrderedSubscriptionsTest extends AbstractEventBusTest {
 
     @Test
     public void testOrderedMainThread() {
-        runTestOrdered(new IntTestEvent(42), false, 3);
+        runTestOrdered(new IntTest(42), false, 3);
     }
 
     @Test
@@ -53,7 +53,7 @@ public class EventBusOrderedSubscriptionsTest extends AbstractEventBusTest {
 
     @Test
     public void testOrderedMainThreadSticky() {
-        runTestOrdered(new IntTestEvent(42), true, 3);
+        runTestOrdered(new IntTest(42), true, 3);
     }
 
     @Test
@@ -100,17 +100,17 @@ public class EventBusOrderedSubscriptionsTest extends AbstractEventBusTest {
 
 
         @Subscribe(threadMode = ThreadMode.MAIN, priority = -1)
-        public void onEventMainThreadM1(IntTestEvent event) {
+        public void onEventMainThreadM1(IntTest event) {
             handleEvent(-1, event);
         }
 
         @Subscribe(threadMode = ThreadMode.MAIN)
-        public void onEventMainThreadP0(IntTestEvent event) {
+        public void onEventMainThreadP0(IntTest event) {
             handleEvent(0, event);
         }
 
         @Subscribe(threadMode = ThreadMode.MAIN, priority = 1)
-        public void onEventMainThreadP1(IntTestEvent event) {
+        public void onEventMainThreadP1(IntTest event) {
             handleEvent(1, event);
         }
 
@@ -169,17 +169,17 @@ public class EventBusOrderedSubscriptionsTest extends AbstractEventBusTest {
         }
 
         @Subscribe(threadMode = ThreadMode.MAIN, priority = -1, sticky = true)
-        public void onEventMainThreadM1(IntTestEvent event) {
+        public void onEventMainThreadM1(IntTest event) {
             handleEvent(-1, event);
         }
 
         @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
-        public void onEventMainThreadP0(IntTestEvent event) {
+        public void onEventMainThreadP0(IntTest event) {
             handleEvent(0, event);
         }
 
         @Subscribe(threadMode = ThreadMode.MAIN, priority = 1, sticky = true)
-        public void onEventMainThreadP1(IntTestEvent event) {
+        public void onEventMainThreadP1(IntTest event) {
             handleEvent(1, event);
         }
 

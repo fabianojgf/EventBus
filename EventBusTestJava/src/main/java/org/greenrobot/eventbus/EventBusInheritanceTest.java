@@ -27,11 +27,19 @@ public class EventBusInheritanceTest {
 
     protected EventBus eventBus;
 
+    /** Common flow */
     protected int countMyEventExtended;
     protected int countMyEvent;
     protected int countObjectEvent;
     private int countMyEventInterface;
     private int countMyEventInterfaceExtended;
+
+    /** Exceptional flow */
+    protected int countMyExceptionalEventExtended;
+    protected int countMyExceptionalEvent;
+    protected int countObjectExceptionalEvent;
+    private int countMyExceptionalEventInterface;
+    private int countMyExceptionalEventInterfaceExtended;
 
     @Before
     public void setUp() throws Exception {
@@ -127,6 +135,8 @@ public class EventBusInheritanceTest {
         assertEquals(1, subscriber.countMyEventExtended);
     }
 
+    /** Common flow */
+
     @Subscribe
     public void onEvent(Object event) {
         countObjectEvent++;
@@ -191,4 +201,69 @@ public class EventBusInheritanceTest {
         }
     }
 
+    /** Exceptional flow */
+
+    @Handle
+    public void onExceptionalEvent(Object exceptionalEvent) {
+        countObjectExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+        countMyExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventExtended exceptionalEvent) {
+        countMyExceptionalEventExtended++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventInterface exceptionalEvent) {
+        countMyExceptionalEventInterface++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventInterfaceExtended exceptionalEvent) {
+        countMyExceptionalEventInterfaceExtended++;
+    }
+
+    public static interface MyExceptionalEventInterface {
+    }
+
+    public static class MyExceptionalEvent implements MyExceptionalEventInterface {
+    }
+
+    public static interface MyExceptionalEventInterfaceExtended extends MyExceptionalEventInterface {
+    }
+
+    public static class MyExceptionalEventExtended extends MyExceptionalEvent implements MyExceptionalEventInterfaceExtended {
+    }
+
+    public class StickyHandler {
+        @Handle(sticky = true)
+        public void onExceptionalEvent(Object exceptionalEvent) {
+            countObjectExceptionalEvent++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+            countMyExceptionalEvent++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventExtended exceptionalEvent) {
+            countMyExceptionalEventExtended++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventInterface exceptionalEvent) {
+            countMyExceptionalEventInterface++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventInterfaceExtended exceptionalEvent) {
+            countMyExceptionalEventInterfaceExtended++;
+        }
+    }
 }

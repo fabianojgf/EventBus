@@ -37,22 +37,33 @@ public abstract class AbstractEventBusTest {
     protected static final boolean LONG_TESTS = false;
 
     protected EventBus eventBus;
-
+    /** Common flow */
     protected final AtomicInteger eventCount = new AtomicInteger();
     protected final List<Object> eventsReceived;
-
     protected volatile Object lastEvent;
     protected volatile Thread lastThread;
+    /** Exceptional flow */
+    protected final AtomicInteger exceptionalEventCount = new AtomicInteger();
+    protected final List<Object> exceptionalEventsReceived;
+    protected volatile Object lastExceptionalEvent;
+    protected volatile Thread lastExceptionalThread;
 
     public AbstractEventBusTest() {
-        this(false);
+        this(false, false);
     }
 
-    public AbstractEventBusTest(boolean collectEventsReceived) {
+    public AbstractEventBusTest(boolean collectEventsReceived, boolean collectExceptionalEventsReceived) {
+        /** Common events */
         if (collectEventsReceived) {
             eventsReceived = new CopyOnWriteArrayList<Object>();
         } else {
             eventsReceived = null;
+        }
+        /** Exceptional events */
+        if (collectExceptionalEventsReceived) {
+            exceptionalEventsReceived = new CopyOnWriteArrayList<Object>();
+        } else {
+            exceptionalEventsReceived = null;
         }
     }
 
@@ -81,6 +92,25 @@ public abstract class AbstractEventBusTest {
         assertEquals(expectedCount, eventCount.get());
     }
 
+    protected void waitForExceptionalEventCount(int expectedCount, int maxMillis) {
+        for (int i = 0; i < maxMillis; i++) {
+            int currentCount = exceptionalEventCount.get();
+            if (currentCount == expectedCount) {
+                break;
+            } else if (currentCount > expectedCount) {
+                fail("Current count (" + currentCount + ") is already higher than expected count (" + expectedCount
+                        + ")");
+            } else {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+        assertEquals(expectedCount, exceptionalEventCount.get());
+    }
+
     protected void trackEvent(Object event) {
         lastEvent = event;
         lastThread = Thread.currentThread();
@@ -91,8 +121,22 @@ public abstract class AbstractEventBusTest {
         eventCount.incrementAndGet();
     }
 
+    protected void trackExceptionalEvent(Object exceptionalEvent) {
+        lastExceptionalEvent = exceptionalEvent;
+        lastExceptionalThread = Thread.currentThread();
+        if (exceptionalEventsReceived != null) {
+            exceptionalEventsReceived.add(exceptionalEvent);
+        }
+        // Must the the last one because we wait for this
+        exceptionalEventCount.incrementAndGet();
+    }
+
     protected void assertEventCount(int expectedEventCount) {
         assertEquals(expectedEventCount, eventCount.intValue());
+    }
+
+    protected void assertExceptionalEventCount(int expectedExceptionalEventCount) {
+        assertEquals(expectedExceptionalEventCount, exceptionalEventCount.intValue());
     }
     
     protected void countDownAndAwaitLatch(CountDownLatch latch, long seconds) {

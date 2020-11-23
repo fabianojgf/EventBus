@@ -28,6 +28,7 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
 
     static final int COUNT = LONG_TESTS ? 100000 : 1000;
 
+    /** Common flow */
     final AtomicInteger countStringEvent = new AtomicInteger();
     final AtomicInteger countIntegerEvent = new AtomicInteger();
     final AtomicInteger countObjectEvent = new AtomicInteger();
@@ -35,12 +36,26 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
 
     String lastStringEvent;
     Integer lastIntegerEvent;
+    IntTest lastEventIntTest;
 
-    IntTestEvent lastIntTestEvent;
+    /** Exceptional flow */
+    final AtomicInteger countStringExceptionalEvent = new AtomicInteger();
+    final AtomicInteger countIntegerExceptionalEvent = new AtomicInteger();
+    final AtomicInteger countObjectExceptionalEvent = new AtomicInteger();
+    final AtomicInteger countIntTestExceptionalEvent = new AtomicInteger();
+
+    String lastStringExceptionalEvent;
+    Integer lastIntegerExceptionalEvent;
+    IntTest lastExceptionalEventIntTest;
 
     @Test
     public void testPost01Thread() throws InterruptedException {
         runThreadsSingleEventType(1);
+    }
+
+    @Test
+    public void testThrow01Thread() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(1);
     }
 
     @Test
@@ -49,8 +64,18 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testThrow04Threads() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(4);
+    }
+
+    @Test
     public void testPost40Threads() throws InterruptedException {
         runThreadsSingleEventType(40);
+    }
+
+    @Test
+    public void testThrow40Threads() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(40);
     }
 
     @Test
@@ -59,8 +84,18 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testThrowMixedEventType01Thread() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(1);
+    }
+
+    @Test
     public void testPostMixedEventType04Threads() throws InterruptedException {
         runThreadsMixedEventType(4);
+    }
+
+    @Test
+    public void testThrowMixedEventType04Threads() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(4);
     }
 
     @Test
@@ -68,13 +103,18 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         runThreadsMixedEventType(40);
     }
 
+    @Test
+    public void testThrowMixedEventType40Threads() throws InterruptedException {
+        runThreadsSingleExceptionalEventType(40);
+    }
+
     private void runThreadsSingleEventType(int threadCount) throws InterruptedException {
         int iterations = COUNT / threadCount;
         eventBus.registerSubscriber(this);
 
         CountDownLatch latch = new CountDownLatch(threadCount + 1);
-        List<PosterThread> threads = startThreads(latch, threadCount, iterations, "Hello");
-        long time = triggerAndWaitForThreads(threads, latch);
+        List<PosterThread> threads = startPosterThreads(latch, threadCount, iterations, "Hello");
+        long time = triggerAndWaitForPosterThreads(threads, latch);
 
         log(threadCount + " threads posted " + iterations + " events each in " + time + "ms");
 
@@ -86,8 +126,30 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         assertEquals(expectedCount, countObjectEvent.intValue());
     }
 
+    private void runThreadsSingleExceptionalEventType(int threadCount) throws InterruptedException {
+        int iterations = COUNT / threadCount;
+        eventBus.registerHandler(this);
+
+        CountDownLatch latch = new CountDownLatch(threadCount + 1);
+        List<ThrowerThread> threads = startThrowerThreads(latch, threadCount, iterations, "Hello");
+        long time = triggerAndWaitForThrowerThreads(threads, latch);
+
+        log(threadCount + " threads throwed " + iterations + " exceptional events each in " + time + "ms");
+
+        waitForExceptionalEventCount(COUNT * 2, 5000);
+
+        assertEquals("Hello", lastStringExceptionalEvent);
+        int expectedCount = threadCount * iterations;
+        assertEquals(expectedCount, countStringExceptionalEvent.intValue());
+        assertEquals(expectedCount, countObjectExceptionalEvent.intValue());
+    }
+
     private void runThreadsMixedEventType(int threadCount) throws InterruptedException {
         runThreadsMixedEventType(COUNT, threadCount);
+    }
+
+    private void runThreadsMixedExceptionalEventType(int threadCount) throws InterruptedException {
+        runThreadsMixedExceptionalEventType(COUNT, threadCount);
     }
 
     void runThreadsMixedEventType(int count, int threadCount) throws InterruptedException {
@@ -96,15 +158,15 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         int iterations = count / threadCount / eventTypeCount;
 
         CountDownLatch latch = new CountDownLatch(eventTypeCount * threadCount + 1);
-        List<PosterThread> threadsString = startThreads(latch, threadCount, iterations, "Hello");
-        List<PosterThread> threadsInteger = startThreads(latch, threadCount, iterations, 42);
-        List<PosterThread> threadsIntTestEvent = startThreads(latch, threadCount, iterations, new IntTestEvent(7));
+        List<PosterThread> threadsString = startPosterThreads(latch, threadCount, iterations, "Hello");
+        List<PosterThread> threadsInteger = startPosterThreads(latch, threadCount, iterations, 42);
+        List<PosterThread> threadsIntTestEvent = startPosterThreads(latch, threadCount, iterations, new IntTest(7));
 
         List<PosterThread> threads = new ArrayList<PosterThread>();
         threads.addAll(threadsString);
         threads.addAll(threadsInteger);
         threads.addAll(threadsIntTestEvent);
-        long time = triggerAndWaitForThreads(threads, latch);
+        long time = triggerAndWaitForPosterThreads(threads, latch);
 
         log(threadCount * eventTypeCount + " mixed threads posted " + iterations + " events each in "
                 + time + "ms");
@@ -115,7 +177,7 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
 
         assertEquals("Hello", lastStringEvent);
         assertEquals(42, lastIntegerEvent.intValue());
-        assertEquals(7, lastIntTestEvent.value);
+        assertEquals(7, lastEventIntTest.value);
 
         assertEquals(expectedCountEach, countStringEvent.intValue());
         assertEquals(expectedCountEach, countIntegerEvent.intValue());
@@ -124,9 +186,45 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         assertEquals(expectedCountEach * eventTypeCount, countObjectEvent.intValue());
     }
 
-    private long triggerAndWaitForThreads(List<PosterThread> threads, CountDownLatch latch) throws InterruptedException {
+    void runThreadsMixedExceptionalEventType(int count, int threadCount) throws InterruptedException {
+        eventBus.registerHandler(this);
+        int exceptionalEventTypeCount = 3;
+        int iterations = count / threadCount / exceptionalEventTypeCount;
+
+        CountDownLatch latch = new CountDownLatch(exceptionalEventTypeCount * threadCount + 1);
+        List<ThrowerThread> threadsString = startThrowerThreads(latch, threadCount, iterations, "Hello");
+        List<ThrowerThread> threadsInteger = startThrowerThreads(latch, threadCount, iterations, 42);
+        List<ThrowerThread> threadsIntTestExceptionalEvent = startThrowerThreads(latch, threadCount, iterations, new IntTest(7));
+
+        List<ThrowerThread> threads = new ArrayList<ThrowerThread>();
+        threads.addAll(threadsString);
+        threads.addAll(threadsInteger);
+        threads.addAll(threadsIntTestExceptionalEvent);
+        long time = triggerAndWaitForThrowerThreads(threads, latch);
+
+        log(threadCount * exceptionalEventTypeCount + " mixed threads throwed " + iterations + " exceptional events each in "
+                + time + "ms");
+
+        int expectedCountEach = threadCount * iterations;
+        int expectedCountTotal = expectedCountEach * exceptionalEventTypeCount * 2;
+        waitForExceptionalEventCount(expectedCountTotal, 5000);
+
+        assertEquals("Hello", lastStringExceptionalEvent);
+        assertEquals(42, lastIntegerExceptionalEvent.intValue());
+        assertEquals(7, lastExceptionalEventIntTest.value);
+
+        assertEquals(expectedCountEach, countStringExceptionalEvent.intValue());
+        assertEquals(expectedCountEach, countIntegerExceptionalEvent.intValue());
+        assertEquals(expectedCountEach, countIntTestExceptionalEvent.intValue());
+
+        assertEquals(expectedCountEach * exceptionalEventTypeCount, countObjectExceptionalEvent.intValue());
+    }
+
+    /** Common flow */
+
+    private long triggerAndWaitForPosterThreads(List<PosterThread> threads, CountDownLatch latch) throws InterruptedException {
         while (latch.getCount() != 1) {
-            // Let all other threads prepare and ensure this one is the last 
+            // Let all other threads prepare and ensure this one is the last
             Thread.sleep(1);
         }
         long start = System.currentTimeMillis();
@@ -137,7 +235,7 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         return System.currentTimeMillis() - start;
     }
 
-    private List<PosterThread> startThreads(CountDownLatch latch, int threadCount, int iterations, Object eventToPost) {
+    private List<PosterThread> startPosterThreads(CountDownLatch latch, int threadCount, int iterations, Object eventToPost) {
         List<PosterThread> threads = new ArrayList<PosterThread>(threadCount);
         for (int i = 0; i < threadCount; i++) {
             PosterThread thread = new PosterThread(latch, iterations, eventToPost);
@@ -162,9 +260,9 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
     }
 
     @Subscribe(threadMode = ThreadMode.ASYNC)
-    public void onEventAsync(IntTestEvent event) {
+    public void onEventAsync(IntTest event) {
         countIntTestEvent.incrementAndGet();
-        lastIntTestEvent = event;
+        lastEventIntTest = event;
         trackEvent(event);
     }
 
@@ -201,4 +299,82 @@ public class EventBusMultithreadedTest extends AbstractEventBusTest {
         }
     }
 
+    /** Exceptional flow */
+
+    private long triggerAndWaitForThrowerThreads(List<ThrowerThread> threads, CountDownLatch latch) throws InterruptedException {
+        while (latch.getCount() != 1) {
+            // Let all other threads prepare and ensure this one is the last
+            Thread.sleep(1);
+        }
+        long start = System.currentTimeMillis();
+        latch.countDown();
+        for (ThrowerThread thread : threads) {
+            thread.join();
+        }
+        return System.currentTimeMillis() - start;
+    }
+
+    private List<ThrowerThread> startThrowerThreads(CountDownLatch latch, int threadCount, int iterations, Object exceptionalEventToThrow) {
+        List<ThrowerThread> threads = new ArrayList<ThrowerThread>(threadCount);
+        for (int i = 0; i < threadCount; i++) {
+            ThrowerThread thread = new ThrowerThread(latch, iterations, exceptionalEventToThrow);
+            thread.start();
+            threads.add(thread);
+        }
+        return threads;
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.BACKGROUND)
+    public void onExceptionalEventBackgroundThread(String exceptionalEvent) {
+        lastStringExceptionalEvent = exceptionalEvent;
+        countStringExceptionalEvent.incrementAndGet();
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.MAIN)
+    public void onExceptionalEventMainThread(Integer exceptionalEvent) {
+        lastIntegerExceptionalEvent = exceptionalEvent;
+        countIntegerExceptionalEvent.incrementAndGet();
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    @Handle(threadMode = ExceptionalThreadMode.ASYNC)
+    public void onExceptionalEventAsync(IntTest exceptionalEvent) {
+        countIntTestExceptionalEvent.incrementAndGet();
+        lastExceptionalEventIntTest = exceptionalEvent;
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    @Handle
+    public void onExceptionalEvent(Object exceptionalEvent) {
+        countObjectExceptionalEvent.incrementAndGet();
+        trackExceptionalEvent(exceptionalEvent);
+    }
+
+    class ThrowerThread extends Thread {
+
+        private final CountDownLatch startLatch;
+        private final int iterations;
+        private final Object exceptionalEventToThrow;
+
+        public ThrowerThread(CountDownLatch latch, int iterations, Object exceptionalEventToThrow) {
+            this.startLatch = latch;
+            this.iterations = iterations;
+            this.exceptionalEventToThrow = exceptionalEventToThrow;
+        }
+
+        @Override
+        public void run() {
+            startLatch.countDown();
+            try {
+                startLatch.await();
+            } catch (InterruptedException e) {
+                log("Unexpected interrupt", e);
+            }
+
+            for (int i = 0; i < iterations; i++) {
+                eventBus.throwException(exceptionalEventToThrow);
+            }
+        }
+    }
 }

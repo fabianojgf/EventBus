@@ -37,6 +37,7 @@ public class EventBusBasicTest extends AbstractEventBusTest {
 
     }
 
+    /** Common flow */
     private String lastStringEvent;
     private int countStringEvent;
     private int countIntEvent;
@@ -44,6 +45,15 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     private int countMyEventExtended;
     private int countMyEvent;
     private int countMyEvent2;
+
+    /** Exceptional flow */
+    private String lastStringExceptionalEvent;
+    private int countStringExceptionalEvent;
+    private int countIntExceptionalEvent;
+    private int lastIntExceptionalEvent;
+    private int countMyExceptionalEventExtended;
+    private int countMyExceptionalEvent;
+    private int countMyExceptionalEvent2;
 
     @Test
     public void testRegisterAndPost() {
@@ -62,19 +72,46 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testRegisterAndThrow() {
+        // Use an activity to test real life performance
+        StringExceptionalEventHandler stringExceptionalEventHandler = new StringExceptionalEventHandler();
+        String exceptionalEvent = "Hello";
+
+        long start = System.currentTimeMillis();
+        eventBus.registerHandler(stringExceptionalEventHandler);
+        long time = System.currentTimeMillis() - start;
+        log("Registered in " + time + "ms");
+
+        eventBus.throwException(exceptionalEvent);
+
+        assertEquals(exceptionalEvent, stringExceptionalEventHandler.lastStringExceptionalEvent);
+    }
+
+    @Test
     public void testPostWithoutSubscriber() {
         eventBus.post("Hello");
     }
 
     @Test
-    public void testUnregisterWithoutRegister() {
+    public void testThrowWithoutHandler() {
+        eventBus.throwException("Hello");
+    }
+
+    @Test
+    public void testUnregisterSubscriberWithoutRegisterSubscriber() {
         // Results in a warning without throwing
         eventBus.unregisterSubscriber(this);
     }
 
+    @Test
+    public void testUnregisterHandlerWithoutRegisterHandler() {
+        // Results in a warning without throwing
+        eventBus.unregisterHandler(this);
+    }
+
     // This will throw "out of memory" if subscribers are leaked
     @Test
-    public void testUnregisterNotLeaking() {
+    public void testUnregisterSubscriberNotLeaking() {
         int heapMBytes = (int) (Runtime.getRuntime().maxMemory() / (1024L * 1024L));
         for (int i = 0; i < heapMBytes * 2; i++) {
             @SuppressWarnings("unused")
@@ -87,8 +124,23 @@ public class EventBusBasicTest extends AbstractEventBusTest {
         }
     }
 
+    // This will throw "out of memory" if subscribers are leaked
     @Test
-    public void testRegisterTwice() {
+    public void testUnregisterHandlerNotLeaking() {
+        int heapMBytes = (int) (Runtime.getRuntime().maxMemory() / (1024L * 1024L));
+        for (int i = 0; i < heapMBytes * 2; i++) {
+            @SuppressWarnings("unused")
+            EventBusBasicTest handler = new EventBusBasicTest() {
+                byte[] expensiveObject = new byte[1024 * 1024];
+            };
+            eventBus.registerHandler(handler);
+            eventBus.unregisterHandler(handler);
+            log("Iteration " + i + " / max heap: " + heapMBytes);
+        }
+    }
+
+    @Test
+    public void testRegisterSubscriberTwice() {
         eventBus.registerSubscriber(this);
         try {
             eventBus.registerSubscriber(this);
@@ -99,12 +151,32 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
-    public void testIsRegistered() {
+    public void testRegisterHandlerTwice() {
+        eventBus.registerHandler(this);
+        try {
+            eventBus.registerHandler(this);
+            fail("Did not throw");
+        } catch (RuntimeException expected) {
+            // OK
+        }
+    }
+
+    @Test
+    public void testIsRegisteredSubscriber() {
         assertFalse(eventBus.isRegisteredSubscriber(this));
         eventBus.registerSubscriber(this);
         assertTrue(eventBus.isRegisteredSubscriber(this));
         eventBus.unregisterSubscriber(this);
         assertFalse(eventBus.isRegisteredSubscriber(this));
+    }
+
+    @Test
+    public void testIsRegisteredHandler() {
+        assertFalse(eventBus.isRegisteredHandler(this));
+        eventBus.registerHandler(this);
+        assertTrue(eventBus.isRegisteredHandler(this));
+        eventBus.unregisterHandler(this);
+        assertFalse(eventBus.isRegisteredHandler(this));
     }
 
     @Test
@@ -116,6 +188,17 @@ public class EventBusBasicTest extends AbstractEventBusTest {
         eventBus.post(event);
         assertEquals(event, lastStringEvent);
         assertEquals(event, test2.lastStringEvent);
+    }
+
+    @Test
+    public void testThrowWithTwoHandler() {
+        EventBusBasicTest test2 = new EventBusBasicTest();
+        eventBus.registerHandler(this);
+        eventBus.registerHandler(test2);
+        String exceptionalEvent = "Hello";
+        eventBus.throwException(exceptionalEvent);
+        assertEquals(exceptionalEvent, lastStringExceptionalEvent);
+        assertEquals(exceptionalEvent, test2.lastStringExceptionalEvent);
     }
 
     @Test
@@ -135,12 +218,37 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testThrowMultipleTimes() {
+        eventBus.registerHandler(this);
+        MyExceptionalEvent exceptionalEvent = new MyExceptionalEvent();
+        int count = 1000;
+        long start = System.currentTimeMillis();
+        // Debug.startMethodTracing("testPostMultipleTimes" + count);
+        for (int i = 0; i < count; i++) {
+            eventBus.throwException(exceptionalEvent);
+        }
+        // Debug.stopMethodTracing();
+        long time = System.currentTimeMillis() - start;
+        log("Throwed " + count + " exceptional events in " + time + "ms");
+        assertEquals(count, countMyExceptionalEvent);
+    }
+
+    @Test
     public void testMultipleSubscribeMethodsForEvent() {
         eventBus.registerSubscriber(this);
         MyEvent event = new MyEvent();
         eventBus.post(event);
         assertEquals(1, countMyEvent);
         assertEquals(1, countMyEvent2);
+    }
+
+    @Test
+    public void testMultipleHandleMethodsForExceptionalEvent() {
+        eventBus.registerHandler(this);
+        MyExceptionalEvent exceptionalEvent = new MyExceptionalEvent();
+        eventBus.throwException(exceptionalEvent);
+        assertEquals(1, countMyExceptionalEvent);
+        assertEquals(1, countMyExceptionalEvent2);
     }
 
     @Test
@@ -152,7 +260,15 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
-    public void testRegisterAndPostTwoTypes() {
+    public void testThrowAfterUnregisterHandler() {
+        eventBus.registerHandler(this);
+        eventBus.unregisterHandler(this);
+        eventBus.throwException("Hello");
+        assertNull(lastStringExceptionalEvent);
+    }
+
+    @Test
+    public void testRegisterSubscriberAndPostTwoTypes() {
         eventBus.registerSubscriber(this);
         eventBus.post(42);
         eventBus.post("Hello");
@@ -163,7 +279,18 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
-    public void testRegisterUnregisterAndPostTwoTypes() {
+    public void testRegisterHandlerAndThrowTwoTypes() {
+        eventBus.registerHandler(this);
+        eventBus.throwException(42);
+        eventBus.throwException("Hello");
+        assertEquals(1, countIntExceptionalEvent);
+        assertEquals(1, countStringExceptionalEvent);
+        assertEquals(42, lastIntExceptionalEvent);
+        assertEquals("Hello", lastStringExceptionalEvent);
+    }
+
+    @Test
+    public void testRegisterUnregisterSubscriberAndPostTwoTypes() {
         eventBus.registerSubscriber(this);
         eventBus.unregisterSubscriber(this);
         eventBus.post(42);
@@ -174,10 +301,28 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testRegisterUnregisterHandlerAndPostTwoTypes() {
+        eventBus.registerHandler(this);
+        eventBus.unregisterHandler(this);
+        eventBus.throwException(42);
+        eventBus.throwException("Hello");
+        assertEquals(0, countIntExceptionalEvent);
+        assertEquals(0, lastIntExceptionalEvent);
+        assertEquals(0, countStringExceptionalEvent);
+    }
+
+    @Test
     public void testPostOnDifferentEventBus() {
         eventBus.registerSubscriber(this);
         new EventBus().post("Hello");
         assertEquals(0, countStringEvent);
+    }
+
+    @Test
+    public void testThrowOnDifferentEventBus() {
+        eventBus.registerHandler(this);
+        new EventBus().throwException("Hello");
+        assertEquals(0, countStringExceptionalEvent);
     }
 
     @Test
@@ -193,6 +338,18 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testThrowInExceptionalEventHandler() {
+        RethrowInteger rethrow = new RethrowInteger();
+        eventBus.registerHandler(rethrow);
+        eventBus.registerHandler(this);
+        eventBus.throwException(1);
+        assertEquals(10, countIntExceptionalEvent);
+        assertEquals(10, lastIntExceptionalEvent);
+        assertEquals(10, rethrow.countExceptionalEvent);
+        assertEquals(10, rethrow.lastExceptionalEvent);
+    }
+
+    @Test
     public void testHasSubscriberForEvent() {
         assertFalse(eventBus.hasSubscriberForEventType(String.class));
 
@@ -201,6 +358,17 @@ public class EventBusBasicTest extends AbstractEventBusTest {
 
         eventBus.unregisterSubscriber(this);
         assertFalse(eventBus.hasSubscriberForEventType(String.class));
+    }
+
+    @Test
+    public void testHasHandlerForExceptionalEvent() {
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        eventBus.registerHandler(this);
+        assertTrue(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        eventBus.unregisterHandler(this);
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
     }
 
     @Test
@@ -216,6 +384,18 @@ public class EventBusBasicTest extends AbstractEventBusTest {
     }
 
     @Test
+    public void testHasHandlerForExceptionalEventSuperclass() {
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        Object handler = new ObjectHandler();
+        eventBus.registerHandler(handler);
+        assertTrue(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        eventBus.unregisterHandler(handler);
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
+    }
+
+    @Test
     public void testHasSubscriberForEventImplementedInterface() {
         assertFalse(eventBus.hasSubscriberForEventType(String.class));
 
@@ -228,6 +408,22 @@ public class EventBusBasicTest extends AbstractEventBusTest {
         assertFalse(eventBus.hasSubscriberForEventType(CharSequence.class));
         assertFalse(eventBus.hasSubscriberForEventType(String.class));
     }
+
+    @Test
+    public void testHasHandlerForExceptionalEventImplementedInterface() {
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        Object handler = new CharSequenceHandler();
+        eventBus.registerHandler(handler);
+        assertTrue(eventBus.hasHandlerForExceptionalEventType(CharSequence.class));
+        assertTrue(eventBus.hasHandlerForExceptionalEventType(String.class));
+
+        eventBus.unregisterHandler(handler);
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(CharSequence.class));
+        assertFalse(eventBus.hasHandlerForExceptionalEventType(String.class));
+    }
+
+    /** Common flow */
 
     @Subscribe
     public void onEvent(String event) {
@@ -302,4 +498,78 @@ public class EventBusBasicTest extends AbstractEventBusTest {
         }
     }
 
+    /** Exceptional flow */
+
+    @Handle
+    public void onExceptionalEvent(String exceptionalEvent) {
+        lastStringExceptionalEvent = exceptionalEvent;
+        countStringExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(Integer exceptionalEvent) {
+        lastIntExceptionalEvent = exceptionalEvent;
+        countIntExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+        countMyExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent2(MyExceptionalEvent exceptionalEvent) {
+        countMyExceptionalEvent2++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventExtended exceptionalEvent) {
+        countMyExceptionalEventExtended++;
+    }
+
+    public static class StringExceptionalEventHandler {
+        public String lastStringExceptionalEvent;
+
+        @Handle
+        public void onExceptionalEvent(String exceptionalEvent) {
+            lastStringExceptionalEvent = exceptionalEvent;
+        }
+    }
+
+    public static class CharSequenceHandler {
+        @Handle
+        public void onExceptionalEvent(CharSequence exceptionalEvent) {
+        }
+    }
+
+    public static class ObjectHandler {
+        @Handle
+        public void onExceptionalEvent(Object exceptionalEvent) {
+        }
+    }
+
+    public class MyExceptionalEvent {
+    }
+
+    public class MyExceptionalEventExtended extends MyExceptionalEvent {
+    }
+
+    public class RethrowInteger {
+        public int lastExceptionalEvent;
+        public int countExceptionalEvent;
+
+        @Handle
+        public void onExceptionalEvent(Integer exceptionalEvent) {
+            lastExceptionalEvent = exceptionalEvent;
+            countExceptionalEvent++;
+            assertEquals(countExceptionalEvent, exceptionalEvent.intValue());
+
+            if (exceptionalEvent < 10) {
+                int countIntExceptionalEventBefore = countExceptionalEvent;
+                eventBus.throwException(exceptionalEvent + 1);
+                // All our post calls will just enqueue the event, so check count is unchanged
+                assertEquals(countIntExceptionalEventBefore, countIntExceptionalEventBefore);
+            }
+        }
+    }
 }

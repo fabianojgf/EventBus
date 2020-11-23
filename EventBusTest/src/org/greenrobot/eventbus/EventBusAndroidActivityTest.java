@@ -36,7 +36,6 @@ public class EventBusAndroidActivityTest extends AbstractEventBusTest {
         @Test
         public void dummy() {
         }
-
     }
 
     @Rule
@@ -59,12 +58,35 @@ public class EventBusAndroidActivityTest extends AbstractEventBusTest {
         assertEquals(event, testActivity.lastStringEvent);
     }
 
+    @Test
+    @UiThreadTest
+    public void testRegisterAndThrow() {
+        // Use an activity to test real life performance
+        TestActivity testActivity = new TestActivity();
+        String exceptionalEvent = "Hello";
+
+        long start = System.currentTimeMillis();
+        eventBus.registerHandler(testActivity);
+        long time = System.currentTimeMillis() - start;
+        Log.d(EventBus.TAG, "Registered in " + time + "ms");
+
+        eventBus.throwException(exceptionalEvent);
+
+        assertEquals(exceptionalEvent, testActivity.lastStringExceptionalEvent);
+    }
+
     public static class TestActivity extends Activity {
         public String lastStringEvent;
+        public String lastStringExceptionalEvent;
 
         @Subscribe
         public void onEvent(String event) {
             lastStringEvent = event;
+        }
+
+        @Handle
+        public void onExceptionalEvent(String exceptionalEvent) {
+            lastStringExceptionalEvent = exceptionalEvent;
         }
     }
 

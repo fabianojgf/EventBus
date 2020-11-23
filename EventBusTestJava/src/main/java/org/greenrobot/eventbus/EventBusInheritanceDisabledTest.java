@@ -27,15 +27,26 @@ public class EventBusInheritanceDisabledTest {
 
     protected EventBus eventBus;
 
+    /** Common flow */
     protected int countMyEventExtended;
     protected int countMyEvent;
     protected int countObjectEvent;
     private int countMyEventInterface;
     private int countMyEventInterfaceExtended;
 
+    /** Exceptional flow */
+    protected int countMyExceptionalEventExtended;
+    protected int countMyExceptionalEvent;
+    protected int countObjectExceptionalEvent;
+    private int countMyExceptionalEventInterface;
+    private int countMyExceptionalEventInterfaceExtended;
+
     @Before
     public void setUp() throws Exception {
-        eventBus = EventBus.builder().eventInheritance(false).build();
+        eventBus = EventBus.builder()
+                .eventInheritance(false)
+                .exceptionalEventInheritance(false)
+                .build();
     }
 
     @Test
@@ -56,6 +67,23 @@ public class EventBusInheritanceDisabledTest {
     }
 
     @Test
+    public void testExceptionalEventClassHierarchy() {
+        eventBus.registerHandler(this);
+
+        eventBus.throwException("Hello");
+        assertEquals(0, countObjectExceptionalEvent);
+
+        eventBus.throwException(new MyExceptionalEvent());
+        assertEquals(0, countObjectExceptionalEvent);
+        assertEquals(1, countMyExceptionalEvent);
+
+        eventBus.throwException(new MyExceptionalEventExtended());
+        assertEquals(0, countObjectExceptionalEvent);
+        assertEquals(1, countMyExceptionalEvent);
+        assertEquals(1, countMyExceptionalEventExtended);
+    }
+
+    @Test
     public void testEventClassHierarchySticky() {
         eventBus.postSticky("Hello");
         eventBus.postSticky(new MyEvent());
@@ -64,6 +92,17 @@ public class EventBusInheritanceDisabledTest {
         assertEquals(1, countMyEventExtended);
         assertEquals(1, countMyEvent);
         assertEquals(0, countObjectEvent);
+    }
+
+    @Test
+    public void testExceptionalEventClassHierarchySticky() {
+        eventBus.throwSticky("Hello");
+        eventBus.throwSticky(new MyExceptionalEvent());
+        eventBus.throwSticky(new MyExceptionalEventExtended());
+        eventBus.registerHandler(new StickyHandler());
+        assertEquals(1, countMyExceptionalEventExtended);
+        assertEquals(1, countMyExceptionalEvent);
+        assertEquals(0, countObjectExceptionalEvent);
     }
 
     @Test
@@ -79,6 +118,18 @@ public class EventBusInheritanceDisabledTest {
     }
 
     @Test
+    public void testExceptionalEventInterfaceHierarchy() {
+        eventBus.registerHandler(this);
+
+        eventBus.throwException(new MyExceptionalEvent());
+        assertEquals(0, countMyExceptionalEventInterface);
+
+        eventBus.throwException(new MyExceptionalEventExtended());
+        assertEquals(0, countMyExceptionalEventInterface);
+        assertEquals(0, countMyExceptionalEventInterfaceExtended);
+    }
+
+    @Test
     public void testEventSuperInterfaceHierarchy() {
         eventBus.registerSubscriber(this);
 
@@ -86,6 +137,16 @@ public class EventBusInheritanceDisabledTest {
         });
         assertEquals(0, countMyEventInterface);
         assertEquals(0, countMyEventInterfaceExtended);
+    }
+
+    @Test
+    public void testExceptionalEventSuperInterfaceHierarchy() {
+        eventBus.registerHandler(this);
+
+        eventBus.throwException(new MyExceptionalEventInterfaceExtended() {
+        });
+        assertEquals(0, countMyExceptionalEventInterface);
+        assertEquals(0, countMyExceptionalEventInterfaceExtended);
     }
 
     @Test
@@ -110,6 +171,27 @@ public class EventBusInheritanceDisabledTest {
     }
 
     @Test
+    public void testHandlerClassHierarchy() {
+        EventBusInheritanceDisabledSubclassTest
+                handler = new EventBusInheritanceDisabledSubclassTest();
+        eventBus.registerHandler(handler);
+
+        eventBus.throwException("Hello");
+        assertEquals(0, handler.countObjectExceptionalEvent);
+
+        eventBus.throwException(new MyExceptionalEvent());
+        assertEquals(0, handler.countObjectExceptionalEvent);
+        assertEquals(0, handler.countMyExceptionalEvent);
+        assertEquals(1, handler.countMyExceptionalEventOverwritten);
+
+        eventBus.throwException(new MyExceptionalEventExtended());
+        assertEquals(0, handler.countObjectExceptionalEvent);
+        assertEquals(0, handler.countMyExceptionalEvent);
+        assertEquals(1, handler.countMyExceptionalEventExtended);
+        assertEquals(1, handler.countMyExceptionalEventOverwritten);
+    }
+
+    @Test
     public void testSubscriberClassHierarchyWithoutNewSubscriberMethod() {
         EventBusInheritanceDisabledSubclassNoMethod
                 subscriber = new EventBusInheritanceDisabledSubclassNoMethod();
@@ -127,6 +209,27 @@ public class EventBusInheritanceDisabledTest {
         assertEquals(1, subscriber.countMyEvent);
         assertEquals(1, subscriber.countMyEventExtended);
     }
+
+    @Test
+    public void testHandlerClassHierarchyWithoutNewHandlerMethod() {
+        EventBusInheritanceDisabledSubclassNoMethod
+                handler = new EventBusInheritanceDisabledSubclassNoMethod();
+        eventBus.registerHandler(handler);
+
+        eventBus.throwException("Hello");
+        assertEquals(0, handler.countObjectExceptionalEvent);
+
+        eventBus.throwException(new MyExceptionalEvent());
+        assertEquals(0, handler.countObjectExceptionalEvent);
+        assertEquals(1, handler.countMyExceptionalEvent);
+
+        eventBus.throwException(new MyExceptionalEventExtended());
+        assertEquals(0, handler.countObjectExceptionalEvent);
+        assertEquals(1, handler.countMyExceptionalEvent);
+        assertEquals(1, handler.countMyExceptionalEventExtended);
+    }
+
+    /** Common flow */
 
     @Subscribe
     public void onEvent(Object event) {
@@ -192,4 +295,69 @@ public class EventBusInheritanceDisabledTest {
         }
     }
 
+    /** Exceptional flow */
+
+    @Handle
+    public void onExceptionalEvent(Object exceptionalEvent) {
+        countObjectExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+        countMyExceptionalEvent++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventExtended exceptionalEvent) {
+        countMyExceptionalEventExtended++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventInterface exceptionalEvent) {
+        countMyExceptionalEventInterface++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEventInterfaceExtended exceptionalEvent) {
+        countMyExceptionalEventInterfaceExtended++;
+    }
+
+    public static interface MyExceptionalEventInterface {
+    }
+
+    public static class MyExceptionalEvent implements MyExceptionalEventInterface {
+    }
+
+    public static interface MyExceptionalEventInterfaceExtended extends MyExceptionalEventInterface {
+    }
+
+    public static class MyExceptionalEventExtended extends MyExceptionalEvent implements MyExceptionalEventInterfaceExtended {
+    }
+
+    public class StickyHandler {
+        @Handle(sticky = true)
+        public void onExceptionalEvent(Object exceptionalEvent) {
+            countObjectExceptionalEvent++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+            countMyExceptionalEvent++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventExtended exceptionalEvent) {
+            countMyExceptionalEventExtended++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventInterface exceptionalEvent) {
+            countMyExceptionalEventInterface++;
+        }
+
+        @Handle(sticky = true)
+        public void onExceptionalEvent(MyExceptionalEventInterfaceExtended exceptionalEvent) {
+            countMyExceptionalEventInterfaceExtended++;
+        }
+    }
 }

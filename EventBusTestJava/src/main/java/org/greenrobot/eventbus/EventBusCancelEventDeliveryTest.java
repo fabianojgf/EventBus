@@ -28,7 +28,7 @@ public class EventBusCancelEventDeliveryTest extends AbstractEventBusTest {
     Throwable failed;
 
     @Test
-    public void testCancel() {
+    public void testCancelPost() {
         Subscriber canceler = new Subscriber(1, true);
         eventBus.registerSubscriber(new Subscriber(0, false));
         eventBus.registerSubscriber(canceler);
@@ -42,7 +42,7 @@ public class EventBusCancelEventDeliveryTest extends AbstractEventBusTest {
     }
 
     @Test
-    public void testCancelInBetween() {
+    public void testCancelPostInBetween() {
         eventBus.registerSubscriber(new Subscriber(2, true));
         eventBus.registerSubscriber(new Subscriber(1, false));
         eventBus.registerSubscriber(new Subscriber(3, false));
@@ -51,7 +51,7 @@ public class EventBusCancelEventDeliveryTest extends AbstractEventBusTest {
     }
 
     @Test
-    public void testCancelOutsideEventHandler() {
+    public void testCancelPostOutsideEventHandler() {
         try {
             eventBus.cancelEventDelivery(this);
             fail("Should have thrown");
@@ -131,5 +131,4 @@ public class EventBusCancelEventDeliveryTest extends AbstractEventBusTest {
             done.countDown();
         }
     }
-
 }

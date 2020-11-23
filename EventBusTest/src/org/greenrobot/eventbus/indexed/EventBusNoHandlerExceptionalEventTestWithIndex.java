@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-/**
- * Simple event storing an int value. More efficient than Integer because of the its flat hierarchy. 
- */
-package org.greenrobot.eventbus;
+package org.greenrobot.eventbus.indexed;
 
-public class IntTestEvent {
-    public final int value;
+import org.greenrobot.eventbus.EventBusNoHandlerExceptionalEventTest;
+import org.junit.Before;
 
-    public IntTestEvent(int value) {
-        this.value = value;
+public class EventBusNoHandlerExceptionalEventTestWithIndex extends EventBusNoHandlerExceptionalEventTest {
+    @Before
+    public void overwriteEventBus() throws Exception {
+        eventBus = Indexed.build();
     }
-
 }

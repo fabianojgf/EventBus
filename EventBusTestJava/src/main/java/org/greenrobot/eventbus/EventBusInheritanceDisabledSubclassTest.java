@@ -6,10 +6,16 @@ import org.junit.Ignore;
 public class EventBusInheritanceDisabledSubclassTest extends EventBusInheritanceDisabledTest {
 
     int countMyEventOverwritten;
+    int countMyExceptionalEventOverwritten;
 
     @Subscribe
     public void onEvent(MyEvent event) {
         countMyEventOverwritten++;
+    }
+
+    @Handle
+    public void onExceptionalEvent(MyExceptionalEvent exceptionalEvent) {
+        countMyExceptionalEventOverwritten++;
     }
 
     @Override

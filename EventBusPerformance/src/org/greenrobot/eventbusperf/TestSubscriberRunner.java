@@ -27,20 +27,20 @@ import java.util.List;
 /**
  * This thread initialize all selected tests and runs them through. Also the thread skips the tests, when it is canceled
  */
-public class TestRunner extends Thread {
-    private List<Test> tests;
+public class TestSubscriberRunner extends Thread {
+    private List<TestSubscriber> testSubscribers;
     private volatile boolean canceled;
     private final EventBus controlBus;
 
-    public TestRunner(Context context, TestParams testParams, EventBus controlBus) {
+    public TestSubscriberRunner(Context context, TestSubscriberParams testParams, EventBus controlBus) {
         this.controlBus = controlBus;
-        tests = new ArrayList<Test>();
-        for (Class<? extends Test> testClazz : testParams.getTestClasses()) {
+        testSubscribers = new ArrayList<TestSubscriber>();
+        for (Class<? extends TestSubscriber> testClazz : testParams.getTestClasses()) {
             try {
                 Constructor<?>[] constructors = testClazz.getConstructors();
-                Constructor<? extends Test> constructor = testClazz.getConstructor(Context.class, TestParams.class);
-                Test test = constructor.newInstance(context, testParams);
-                tests.add(test);
+                Constructor<? extends TestSubscriber> constructor = testClazz.getConstructor(Context.class, TestSubscriberParams.class);
+                TestSubscriber testSubscriber = constructor.newInstance(context, testParams);
+                testSubscribers.add(testSubscriber);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -50,7 +50,7 @@ public class TestRunner extends Thread {
     public void run() {
 
         int idx = 0;
-        for (Test test : tests) {
+        for (TestSubscriber testSubscriber : testSubscribers) {
             // Clean up and let the main thread calm down
             System.gc();
             try {
@@ -60,27 +60,27 @@ public class TestRunner extends Thread {
             } catch (InterruptedException e) {
             }
 
-            test.prepareTest();
+            testSubscriber.prepareTest();
             if (!canceled) {
-                test.runTest();
+                testSubscriber.runTest();
             }
             if (!canceled) {
-                boolean isLastEvent = idx == tests.size() - 1;
-                controlBus.post(new TestFinishedEvent(test, isLastEvent));
+                boolean isLastEvent = idx == testSubscribers.size() - 1;
+                controlBus.post(new TestFinishedEvent(testSubscriber, isLastEvent));
             }
             idx++;
         }
 
     }
 
-    public List<Test> getTests() {
-        return tests;
+    public List<TestSubscriber> getTestSubscribers() {
+        return testSubscribers;
     }
 
     public void cancel() {
         canceled = true;
-        for (Test test : tests) {
-            test.cancel();
+        for (TestSubscriber testSubscriber : testSubscribers) {
+            testSubscriber.cancel();
         }
     }
 }

@@ -38,6 +38,16 @@ public class EventBusBackgroundThreadTest extends AbstractAndroidEventBusTest {
     }
 
     @Test
+    public void testThrowInCurrentThread() throws InterruptedException {
+        eventBus.registerHandler(this);
+        eventBus.throwException("Hello");
+        waitForExceptionalEventCount(1, 1000);
+
+        assertEquals("Hello", lastExceptionalEvent);
+        assertEquals(Thread.currentThread(), lastExceptionalThread);
+    }
+
+    @Test
     public void testPostFromMain() throws InterruptedException {
         eventBus.registerSubscriber(this);
         postInMainThread("Hello");
@@ -47,9 +57,27 @@ public class EventBusBackgroundThreadTest extends AbstractAndroidEventBusTest {
         assertFalse(lastThread.equals(Looper.getMainLooper().getThread()));
     }
 
+    @Test
+    public void testThrowFromMain() throws InterruptedException {
+        eventBus.registerHandler(this);
+        throwInMainThread("Hello");
+        waitForExceptionalEventCount(1, 1000);
+        assertEquals("Hello", lastExceptionalEvent);
+        assertFalse(lastExceptionalThread.equals(Thread.currentThread()));
+        assertFalse(lastExceptionalThread.equals(Looper.getMainLooper().getThread()));
+    }
+
+    /** Common flow */
+
     @Subscribe(threadMode = ThreadMode.BACKGROUND)
     public void onEventBackgroundThread(String event) {
         trackEvent(event);
     }
 
+    /** Exceptional flow */
+
+    @Handle(threadMode = ExceptionalThreadMode.BACKGROUND)
+    public void onExceptionalEventBackgroundThread(String exceptionalEvent) {
+        trackExceptionalEvent(exceptionalEvent);
+    }
 }

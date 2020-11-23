@@ -35,7 +35,7 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
     @Test
     public void testPostStickyTwoEvents() throws InterruptedException {
         eventBus.postSticky("Sticky");
-        eventBus.postSticky(new IntTestEvent(7));
+        eventBus.postSticky(new IntTest(7));
         eventBus.registerSubscriber(this);
         assertEquals(2, eventCount.intValue());
     }
@@ -43,7 +43,7 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
     @Test
     public void testPostStickyTwoSubscribers() throws InterruptedException {
         eventBus.postSticky("Sticky");
-        eventBus.postSticky(new IntTestEvent(7));
+        eventBus.postSticky(new IntTest(7));
         eventBus.registerSubscriber(this);
         StickyIntTestSubscriber subscriber2 = new StickyIntTestSubscriber();
         eventBus.registerSubscriber(subscriber2);
@@ -52,7 +52,7 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
         eventBus.postSticky("Sticky");
         assertEquals(4, eventCount.intValue());
 
-        eventBus.postSticky(new IntTestEvent(8));
+        eventBus.postSticky(new IntTest(8));
         assertEquals(6, eventCount.intValue());
     }
 
@@ -138,10 +138,10 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
     @Test
     public void testPostStickyRemoveAll() throws InterruptedException {
         eventBus.postSticky("Sticky");
-        eventBus.postSticky(new IntTestEvent(77));
+        eventBus.postSticky(new IntTest(77));
         eventBus.removeAllStickyEvents();
         assertNull(eventBus.getStickyEvent(String.class));
-        assertNull(eventBus.getStickyEvent(IntTestEvent.class));
+        assertNull(eventBus.getStickyEvent(IntTest.class));
         eventBus.registerSubscriber(this);
         assertNull(lastEvent);
         assertEquals(0, eventCount.intValue());
@@ -163,7 +163,7 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
     }
 
     @Subscribe(sticky = true)
-    public void onEvent(IntTestEvent event) {
+    public void onEvent(IntTest event) {
         trackEvent(event);
     }
 
@@ -182,14 +182,14 @@ public class EventBusStickyEventTest extends AbstractEventBusTest {
         }
 
         @Subscribe
-        public void onEvent(IntTestEvent event) {
+        public void onEvent(IntTest event) {
             trackEvent(event);
         }
     }
 
     public class StickyIntTestSubscriber {
         @Subscribe(sticky = true)
-        public void onEvent(IntTestEvent event) {
+        public void onEvent(IntTest event) {
             trackEvent(event);
         }
     }

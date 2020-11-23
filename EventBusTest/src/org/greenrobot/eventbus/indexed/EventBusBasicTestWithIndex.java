@@ -30,6 +30,8 @@ public class EventBusBasicTestWithIndex extends EventBusBasicTest {
 
     @Test
     public void testIndex() {
-        assertTrue(eventBus.toString().contains("indexCount=2"));
+        assertTrue(eventBus.toString().contains("indexCount=4"));
+        assertTrue(eventBus.toString().contains("indexCountSubscriber=2"));
+        assertTrue(eventBus.toString().contains("indexCountHandler=2"));
     }
 }

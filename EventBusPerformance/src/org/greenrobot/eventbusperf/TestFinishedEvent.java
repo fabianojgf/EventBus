@@ -18,11 +18,11 @@ package org.greenrobot.eventbusperf;
 
 public class TestFinishedEvent {
 
-    public final Test test;
+    public final TestSubscriber testSubscriber;
     public final boolean isLastEvent;
 
-    public TestFinishedEvent(Test test, boolean isLastEvent) {
-        this.test = test;
+    public TestFinishedEvent(TestSubscriber testSubscriber, boolean isLastEvent) {
+        this.testSubscriber = testSubscriber;
         this.isLastEvent = isLastEvent;
     }
 }

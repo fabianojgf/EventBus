@@ -21,7 +21,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.Serializable;
 import java.util.ArrayList;
 
-public class TestParams implements Serializable {
+public class TestSubscriberParams implements Serializable {
     private static final long serialVersionUID = -2739435088947740809L;
 
     private int eventCount;
@@ -31,7 +31,7 @@ public class TestParams implements Serializable {
     private boolean eventInheritance;
     private boolean ignoreGeneratedIndex;
     private int testNumber;
-    private ArrayList<Class<? extends Test>> testClasses;
+    private ArrayList<Class<? extends TestSubscriber>> testClasses;
 
     public int getEventCount() {
         return eventCount;
@@ -81,11 +81,11 @@ public class TestParams implements Serializable {
         this.ignoreGeneratedIndex = ignoreGeneratedIndex;
     }
 
-    public ArrayList<Class<? extends Test>> getTestClasses() {
+    public ArrayList<Class<? extends TestSubscriber>> getTestClasses() {
         return testClasses;
     }
 
-    public void setTestClasses(ArrayList<Class<? extends Test>> testClasses) {
+    public void setTestClasses(ArrayList<Class<? extends TestSubscriber>> testClasses) {
         this.testClasses = testClasses;
     }
 

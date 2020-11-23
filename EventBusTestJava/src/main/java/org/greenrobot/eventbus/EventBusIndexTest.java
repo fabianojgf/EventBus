@@ -16,6 +16,10 @@
 
 package org.greenrobot.eventbus;
 
+import org.greenrobot.eventbus.meta.HandlerInfo;
+import org.greenrobot.eventbus.meta.HandlerInfoIndex;
+import org.greenrobot.eventbus.meta.HandlerMethodInfo;
+import org.greenrobot.eventbus.meta.SimpleHandlerInfo;
 import org.greenrobot.eventbus.meta.SimpleSubscriberInfo;
 import org.greenrobot.eventbus.meta.SubscriberInfo;
 import org.greenrobot.eventbus.meta.SubscriberInfoIndex;
@@ -28,7 +32,7 @@ public class EventBusIndexTest {
 
     /** Ensures the index is actually used and no reflection fall-back kicks in. */
     @Test
-    public void testManualIndexWithoutAnnotation() {
+    public void testManualIndexWithoutAnnotationForSubscriber() {
         SubscriberInfoIndex index = new SubscriberInfoIndex() {
 
             @Override
@@ -45,6 +49,28 @@ public class EventBusIndexTest {
         eventBus.registerSubscriber(this);
         eventBus.post("Yepp");
         eventBus.unregisterSubscriber(this);
+        Assert.assertEquals("Yepp", value);
+    }
+
+    /** Ensures the index is actually used and no reflection fall-back kicks in. */
+    @Test
+    public void testManualIndexWithoutAnnotationForHandler() {
+        HandlerInfoIndex index = new HandlerInfoIndex() {
+
+            @Override
+            public HandlerInfo getHandlerInfo(Class<?> handlerClass) {
+                Assert.assertEquals(EventBusIndexTest.class, handlerClass);
+                HandlerMethodInfo[] methodInfos = {
+                        new HandlerMethodInfo("someMethodWithoutAnnotation", String.class)
+                };
+                return new SimpleHandlerInfo(EventBusIndexTest.class, false, methodInfos);
+            }
+        };
+
+        EventBus eventBus = EventBus.builder().addIndex(index).build();
+            eventBus.registerHandler(this);
+        eventBus.throwException("Yepp");
+        eventBus.unregisterHandler(this);
         Assert.assertEquals("Yepp", value);
     }
 

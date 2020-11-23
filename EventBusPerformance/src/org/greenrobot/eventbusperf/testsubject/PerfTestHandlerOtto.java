@@ -24,30 +24,31 @@ import com.squareup.otto.Bus;
 import com.squareup.otto.Subscribe;
 import com.squareup.otto.ThreadEnforcer;
 
+import org.greenrobot.eventbusperf.TestExceptionalEvent;
+import org.greenrobot.eventbusperf.TestHandler;
+import org.greenrobot.eventbusperf.TestEvent;
+import org.greenrobot.eventbusperf.TestHandlerParams;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.greenrobot.eventbusperf.Test;
-import org.greenrobot.eventbusperf.TestEvent;
-import org.greenrobot.eventbusperf.TestParams;
-
-public abstract class PerfTestOtto extends Test {
+public abstract class PerfTestHandlerOtto extends TestHandler {
 
     private final Bus eventBus;
-    private final ArrayList<Object> subscribers;
-    private final Class<?> subscriberClass;
-    private final int eventCount;
-    private final int expectedEventCount;
+    private final ArrayList<Object> handlers;
+    private final Class<?> handlerClass;
+    private final int exceptionalEventCount;
+    private final int expectedExceptionalEventCount;
 
-    public PerfTestOtto(Context context, TestParams params) {
+    public PerfTestHandlerOtto(Context context, TestHandlerParams params) {
         super(context, params);
         eventBus = new Bus(ThreadEnforcer.ANY);
-        subscribers = new ArrayList<Object>();
-        eventCount = params.getEventCount();
-        expectedEventCount = eventCount * params.getSubscriberCount();
-        subscriberClass = Subscriber.class;
+        handlers = new ArrayList<Object>();
+        exceptionalEventCount = params.getEventCount();
+        expectedExceptionalEventCount = exceptionalEventCount * params.getHandlerCount();
+        handlerClass = Handler.class;
     }
 
     @Override
@@ -55,71 +56,71 @@ public abstract class PerfTestOtto extends Test {
         Looper.prepare();
 
         try {
-            Constructor<?> constructor = subscriberClass.getConstructor(PerfTestOtto.class);
-            for (int i = 0; i < params.getSubscriberCount(); i++) {
-                Object subscriber = constructor.newInstance(this);
-                subscribers.add(subscriber);
+            Constructor<?> constructor = handlerClass.getConstructor(PerfTestHandlerOtto.class);
+            for (int i = 0; i < params.getHandlerCount(); i++) {
+                Object handler = constructor.newInstance(this);
+                handlers.add(handler);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static class Post extends PerfTestOtto {
-        public Post(Context context, TestParams params) {
+    public static class Throw extends PerfTestHandlerOtto {
+        public Throw(Context context, TestHandlerParams params) {
             super(context, params);
         }
 
         @Override
         public void prepareTest() {
             super.prepareTest();
-            super.registerSubscribers();
+            super.registerHandlers();
         }
 
         public void runTest() {
-            TestEvent event = new TestEvent();
+            TestExceptionalEvent event = new TestExceptionalEvent();
             long timeStart = System.nanoTime();
-            for (int i = 0; i < super.eventCount; i++) {
+            for (int i = 0; i < super.exceptionalEventCount; i++) {
                 super.eventBus.post(event);
                 if (canceled) {
                     break;
                 }
             }
             long timeAfterPosting = System.nanoTime();
-            waitForReceivedEventCount(super.expectedEventCount);
+            waitForReceivedExceptionalEventCount(super.expectedExceptionalEventCount);
 
             primaryResultMicros = (timeAfterPosting - timeStart) / 1000;
-            primaryResultCount = super.expectedEventCount;
+            primaryResultCount = super.expectedExceptionalEventCount;
         }
 
         @Override
         public String getDisplayName() {
-            return "Otto Post Events";
+            return "Otto Throw (Exceptional) Events";
         }
     }
 
-    public static class RegisterAll extends PerfTestOtto {
-        public RegisterAll(Context context, TestParams params) {
+    public static class RegisterAll extends PerfTestHandlerOtto {
+        public RegisterAll(Context context, TestHandlerParams params) {
             super(context, params);
         }
 
         public void runTest() {
-            super.registerUnregisterOneSubscribers();
-            long timeNanos = super.registerSubscribers();
+            super.registerUnregisterOneHandlers();
+            long timeNanos = super.registerHandlers();
             primaryResultMicros = timeNanos / 1000;
-            primaryResultCount = params.getSubscriberCount();
+            primaryResultCount = params.getHandlerCount();
         }
 
         @Override
         public String getDisplayName() {
-            return "Otto Register, no unregister";
+            return "Otto Register (Handler), no unregister (handler)";
         }
     }
 
-    public static class RegisterOneByOne extends PerfTestOtto {
+    public static class RegisterOneByOne extends PerfTestHandlerOtto {
         protected Field cacheField;
 
-        public RegisterOneByOne(Context context, TestParams params) {
+        public RegisterOneByOne(Context context, TestHandlerParams params) {
             super(context, params);
         }
 
@@ -128,9 +129,9 @@ public abstract class PerfTestOtto extends Test {
             long time = 0;
             if (cacheField == null) {
                 // Skip first registration unless just the first registration is tested
-                super.registerUnregisterOneSubscribers();
+                super.registerUnregisterOneHandlers();
             }
-            for (Object subscriber : super.subscribers) {
+            for (Object handler : super.handlers) {
                 if (cacheField != null) {
                     try {
                         cacheField.set(null, new ConcurrentHashMap());
@@ -139,32 +140,32 @@ public abstract class PerfTestOtto extends Test {
                     }
                 }
                 long beforeRegister = System.nanoTime();
-                super.eventBus.register(subscriber);
+                super.eventBus.register(handler);
 
                 long afterRegister = System.nanoTime();
                 long end = System.nanoTime();
                 long timeMeasureOverhead = (end - afterRegister) * 2;
                 long timeRegister = end - beforeRegister - timeMeasureOverhead;
                 time += timeRegister;
-                super.eventBus.unregister(subscriber);
+                super.eventBus.unregister(handler);
                 if (canceled) {
                     return;
                 }
             }
 
             primaryResultMicros = time / 1000;
-            primaryResultCount = params.getSubscriberCount();
+            primaryResultCount = params.getHandlerCount();
         }
 
         @Override
         public String getDisplayName() {
-            return "Otto Register";
+            return "Otto Register (Handler)";
         }
     }
 
     public static class RegisterFirstTime extends RegisterOneByOne {
 
-        public RegisterFirstTime(Context context, TestParams params) {
+        public RegisterFirstTime(Context context, TestHandlerParams params) {
             super(context, params);
             try {
                 Class<?> clazz = Class.forName("com.squareup.otto.AnnotatedHandlerFinder");
@@ -177,18 +178,18 @@ public abstract class PerfTestOtto extends Test {
 
         @Override
         public String getDisplayName() {
-            return "Otto Register, first time";
+            return "Otto Register (Handler), first time";
         }
 
     }
 
-    public class Subscriber extends Activity {
-        public Subscriber() {
+    public class Handler extends Activity {
+        public Handler() {
         }
 
         @Subscribe
-        public void onEvent(TestEvent event) {
-            eventsReceivedCount.incrementAndGet();
+        public void onEvent(TestExceptionalEvent exceptionalEvent) {
+            exceptionalEventsReceivedCount.incrementAndGet();
         }
 
         public void dummy() {
@@ -208,11 +209,11 @@ public abstract class PerfTestOtto extends Test {
 
     }
 
-    private long registerSubscribers() {
+    private long registerHandlers() {
         long time = 0;
-        for (Object subscriber : subscribers) {
+        for (Object handler : handlers) {
             long timeStart = System.nanoTime();
-            eventBus.register(subscriber);
+            eventBus.register(handler);
             long timeEnd = System.nanoTime();
             time += timeEnd - timeStart;
             if (canceled) {
@@ -222,12 +223,11 @@ public abstract class PerfTestOtto extends Test {
         return time;
     }
 
-    private void registerUnregisterOneSubscribers() {
-        if (!subscribers.isEmpty()) {
-            Object subscriber = subscribers.get(0);
-            eventBus.register(subscriber);
-            eventBus.unregister(subscriber);
+    private void registerUnregisterOneHandlers() {
+        if (!handlers.isEmpty()) {
+            Object handler = handlers.get(0);
+            eventBus.register(handler);
+            eventBus.unregister(handler);
         }
     }
-
 }

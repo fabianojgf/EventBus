@@ -33,20 +33,24 @@ import static org.junit.Assert.assertFalse;
 @RunWith(AndroidJUnit4.class)
 public abstract class AbstractAndroidEventBusTest extends AbstractEventBusTest {
     private EventPostHandler mainPoster;
+    private EventThrowHandler mainThrower;
 
     public AbstractAndroidEventBusTest() {
-        this(false);
+        this(false, false);
     }
 
-    public AbstractAndroidEventBusTest(boolean collectEventsReceived) {
-        super(collectEventsReceived);
+    public AbstractAndroidEventBusTest(boolean collectEventsReceived, boolean collectExceptionalEventsReceived) {
+        super(collectEventsReceived, collectExceptionalEventsReceived);
     }
 
     @Before
     public void setUpAndroid() throws Exception {
         mainPoster = new EventPostHandler(Looper.getMainLooper());
+        mainThrower = new EventThrowHandler(Looper.getMainLooper());
         assertFalse(Looper.getMainLooper().getThread().equals(Thread.currentThread()));
     }
+
+    /** Common flow */
 
     protected void postInMainThread(Object event) {
         mainPoster.post(event);
@@ -66,7 +70,27 @@ public abstract class AbstractAndroidEventBusTest extends AbstractEventBusTest {
         void post(Object event) {
             sendMessage(obtainMessage(0, event));
         }
-
     }
 
+    /** Exceptional flow */
+
+    protected void throwInMainThread(Object exceptionalEvent) {
+        mainThrower.throwException(exceptionalEvent);
+    }
+
+    @SuppressLint("HandlerLeak")
+    class EventThrowHandler extends Handler {
+        public EventThrowHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            eventBus.throwException(msg.obj);
+        }
+
+        void throwException(Object exceptionalEvent) {
+            sendMessage(obtainMessage(0, exceptionalEvent));
+        }
+    }
 }

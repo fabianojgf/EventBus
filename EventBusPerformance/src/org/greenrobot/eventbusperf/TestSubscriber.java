@@ -20,9 +20,9 @@ import android.content.Context;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public abstract class Test {
+public abstract class TestSubscriber {
     protected final Context context;
-    protected final TestParams params;
+    protected final TestSubscriberParams params;
     public final AtomicLong eventsReceivedCount = new AtomicLong();
     protected long primaryResultMicros;
     protected int primaryResultCount;
@@ -30,7 +30,7 @@ public abstract class Test {
 
     protected boolean canceled;
 
-    public Test(Context context, TestParams params) {
+    public TestSubscriber(Context context, TestSubscriberParams params) {
         this.context = context;
         this.params = params;
     }
@@ -68,5 +68,4 @@ public abstract class Test {
     public String getOtherTestResults() {
         return otherTestResults;
     }
-
 }

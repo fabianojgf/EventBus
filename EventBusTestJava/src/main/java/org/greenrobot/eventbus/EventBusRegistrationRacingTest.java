@@ -43,14 +43,14 @@ public class EventBusRegistrationRacingTest extends AbstractEventBusTest {
     final Executor threadPool = Executors.newCachedThreadPool();
 
     @Test
-    public void testRacingRegistrations() throws InterruptedException {
+    public void testSubscriberRacingRegistrations() throws InterruptedException {
         for (int i = 0; i < ITERATIONS; i++) {
             startLatch = new CountDownLatch(THREAD_COUNT);
             registeredLatch = new CountDownLatch(THREAD_COUNT);
             canUnregisterLatch = new CountDownLatch(1);
             unregisteredLatch = new CountDownLatch(THREAD_COUNT);
             
-            List<SubscriberThread> threads = startThreads();
+            List<SubscriberThread> threads = startSubscriberThreads();
             registeredLatch.await();
             eventBus.post("42");
             canUnregisterLatch.countDown();
@@ -65,7 +65,32 @@ public class EventBusRegistrationRacingTest extends AbstractEventBusTest {
         }
     }
 
-    private List<SubscriberThread> startThreads() {
+    @Test
+    public void testHandlerRacingRegistrations() throws InterruptedException {
+        for (int i = 0; i < ITERATIONS; i++) {
+            startLatch = new CountDownLatch(THREAD_COUNT);
+            registeredLatch = new CountDownLatch(THREAD_COUNT);
+            canUnregisterLatch = new CountDownLatch(1);
+            unregisteredLatch = new CountDownLatch(THREAD_COUNT);
+
+            List<HandlerThread> threads = startHandlerThreads();
+            registeredLatch.await();
+            eventBus.throwException("42");
+            canUnregisterLatch.countDown();
+            for (int t = 0; t < THREAD_COUNT; t++) {
+                int exceptionalEventCount = threads.get(t).exceptionalEventCount;
+                if (exceptionalEventCount != 1) {
+                    fail("Failed in iteration " + i + ": thread #" + t + " has exceptional event count of " + exceptionalEventCount);
+                }
+            }
+            // Wait for threads to be done
+            unregisteredLatch.await();
+        }
+    }
+
+    /** Common flow */
+
+    private List<SubscriberThread> startSubscriberThreads() {
         List<SubscriberThread> threads = new ArrayList<SubscriberThread>(THREAD_COUNT);
         for (int i = 0; i < THREAD_COUNT; i++) {
             SubscriberThread thread = new SubscriberThread();
@@ -96,7 +121,40 @@ public class EventBusRegistrationRacingTest extends AbstractEventBusTest {
         public void onEvent(String event) {
             eventCount++;
         }
-
     }
 
+    /** Exceptional flow */
+
+    private List<HandlerThread> startHandlerThreads() {
+        List<HandlerThread> threads = new ArrayList<HandlerThread>(THREAD_COUNT);
+        for (int i = 0; i < THREAD_COUNT; i++) {
+            HandlerThread thread = new HandlerThread();
+            threadPool.execute(thread);
+            threads.add(thread);
+        }
+        return threads;
+    }
+
+    public class HandlerThread implements Runnable {
+        volatile int exceptionalEventCount;
+
+        @Override
+        public void run() {
+            countDownAndAwaitLatch(startLatch, 10);
+            eventBus.registerHandler(this);
+            registeredLatch.countDown();
+            try {
+                canUnregisterLatch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            eventBus.unregisterHandler(this);
+            unregisteredLatch.countDown();
+        }
+
+        @Handle
+        public void onExceptionalEvent(String exceptionalEvent) {
+            exceptionalEventCount++;
+        }
+    }
 }

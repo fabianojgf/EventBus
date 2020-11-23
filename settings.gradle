@@ -3,6 +3,7 @@ include ':EventBusAnnotationProcessor'
 include ':EventBusTestJava'
 include ':EventBusTest'
 include ':EventBusTestSubscriberInJar'
+include ':EventBusTestHandlerInJar'
 include ':EventBusPerformance'
 
 project(":EventBus").name = "eventbus"

@@ -26,7 +26,6 @@ import static org.junit.Assert.assertNotNull;
 
 @RunWith(AndroidJUnit4.class)
 public class EventBusAndroidCancelEventDeliveryTest extends EventBusCancelEventDeliveryTest {
-
     @UiThreadTest
     @Test
     public void testCancelInMainThread() {
@@ -37,5 +36,4 @@ public class EventBusAndroidCancelEventDeliveryTest extends EventBusCancelEventD
         assertEquals(0, eventCount.intValue());
         assertNotNull(failed);
     }
-
 }
