@@ -15,10 +15,8 @@
  */
 package org.greenrobot.eventbus.meta;
 
-import org.greenrobot.eventbus.ActionMode;
 import org.greenrobot.eventbus.ExceptionalActionMode;
 import org.greenrobot.eventbus.ExceptionalThreadMode;
-import org.greenrobot.eventbus.ThreadMode;
 
 public class HandlerMethodInfo {
     final String methodName;
@@ -39,7 +37,7 @@ public class HandlerMethodInfo {
     }
 
     public HandlerMethodInfo(String methodName, Class<?> eventType, ExceptionalThreadMode threadMode,
-                                int priority, boolean sticky) {
+                             int priority, boolean sticky) {
         this(methodName, eventType, threadMode, ExceptionalActionMode.HANDLE, priority, sticky);
     }
 
@@ -54,5 +52,4 @@ public class HandlerMethodInfo {
     public HandlerMethodInfo(String methodName, Class<?> eventType, ExceptionalThreadMode threadMode, ExceptionalActionMode actionMode) {
         this(methodName, eventType, threadMode, actionMode,0, false);
     }
-
 }
